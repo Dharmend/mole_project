@@ -1,0 +1,103 @@
+/*
+.block-nice-menus-1{
+border: 1px solid #ccc;
+    float: left;
+    height: 100%;
+    width: 17%;
+}
+.block-nice-menus-1 li a {
+ color: #3b3b3b;
+ display:block;
+ font-size: 100%;
+ padding: 15px 10px;
+ text-decoration: none;
+ width: 100%;
+ vertical-align: baseline;
+ }
+ 
+ */
+  
+ /**
+ * //$Id;
+ * @file reset_nicemenus.css
+ * Resets CSS for NiceMenus (nice_menus.module)
+ * Devised by abdesignuk
+ * Core 6.x
+ */
+ 
+ #sidebar-first{
+ margin-top: 20px;
+ margin-left: 10px;
+ width: none;
+ }
+ 
+ 
+ul.nice-menu{
+margin-left:20px;
+vertical-align: baseline;
+border: 1px solid #ccc;
+float:left;
+height:100%;
+color: #3b3b3b;
+line-height:none;
+list-style: outside none none;
+background-color: white;
+
+}
+ul.nice-menu a{
+background: #1a2e47 none repeat scroll 0 0;
+color: #fff;
+padding: 15px 10px;
+}
+
+
+ul.nice-menu ul,
+ul.nice-menu li,
+ul.nice-menu-down,
+ul.nice-menu-down ul,
+ul.nice-menu-down li,
+ul.nice-menu li.menuparent{
+background: #1a2e47 none repeat scroll 0 0;
+color: #fff;
+}
+ul.nice-menu li.menuparent a {
+background: #1a2e47 none repeat scroll 0 0;
+color: #fff;
+height:20px;
+}
+ul.nice-menu li.menuparent a:hover,
+ul.nice-menu li.menuparent:hover,
+ul.nice-menu li.menuparent:hover a{
+background: #1a2e47 none repeat scroll 0 0;
+color: #fff;
+text-decoration: none;
+width: 100%;
+color: #3b3b3b;
+display:block;
+font-size: 100%;
+padding: 15px 10px;
+text-decoration: none;
+ }
+ 
+.fa-arrow-circle-right::before {
+    content: "";}
+	.about-menu ul li a i {
+    margin-right: 5px;
+}
+.fa {
+    display: inline-block;
+    font-family: FontAwesome;
+    font-feature-settings: normal;
+    font-kerning: auto;
+    font-language-override: normal;
+    font-size: inherit;
+    font-size-adjust: none;
+    font-stretch: normal;
+    font-style: normal;
+    font-synthesis: weight style;
+    font-variant: normal;
+    font-weight: normal;
+    line-height: 1;
+    text-rendering: auto;
+    transform: translate(0px, 0px);
+}

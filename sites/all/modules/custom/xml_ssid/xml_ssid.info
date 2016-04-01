@@ -1,0 +1,4 @@
+name = XML generation SSID
+description = XML generation/Consumsition based on SSID
+core = 7.x
+package = 'custom'

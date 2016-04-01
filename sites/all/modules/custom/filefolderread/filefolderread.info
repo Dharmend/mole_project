@@ -1,0 +1,6 @@
+name = File Folder Read
+description = Read File from folder
+core = 7.x
+package = 'custom'
+
+

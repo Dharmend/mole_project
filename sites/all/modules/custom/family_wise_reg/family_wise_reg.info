@@ -1,0 +1,6 @@
+name = Family Wise Registration
+description = Family wise registration
+core = 7.x
+package = custom
+
+

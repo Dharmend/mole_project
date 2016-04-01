@@ -1,0 +1,11 @@
+card_request_id,csn_no,state,district,authority_card_holder,designation,address1_requester,address2_requester,pin_code,card_type,letter_date,letterno,department_organisation_name,organisation_unit_no,adhar_no
+
+12,,21,01,odisha,state user,odissa address,postgres,456475,8,2016-01-07,23456674,Department org name,341212,12345,
+
+12,,21,22,odisha,state user,odissa address,postgres,456475,8,2016-01-07,23456674,Department org name,341212,12345,
+
+13,,21,11,odisha,state user,odissa address,postgres,765657,8,2016-01-13,7675656,test organsation name,98989,9090,
+
+13,,21,13,odisha,state user,odissa address,postgres,765657,8,2016-01-13,7675656,test organsation name,98989,9090,
+
+14,,32,11,martin luther,Sr. Science teacher,Noida Sector 7,near Mohan Sweet houser,236586,8,2016-02-11,2123654,test,test01,ADHAR01111,

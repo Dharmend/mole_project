@@ -1,0 +1,652 @@
+<?php
+
+function upload_acknowledgement_menu() {
+  $items = array();
+
+  $items['upload-acknowledgement'] = array(
+    'title' => 'Upload Scanned Document of Registered Users Captured In Offline Registration',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('upload_acknowledgement_data'),
+   // 'access arguments' => array('download village data list'),
+    'type' => MENU_NORMAL_ITEM,
+    'access callback' => TRUE,
+
+   );
+
+   $items['uw/%/%/upload'] = array(//ahltin and kitid respectevely
+        'title' => 'Upload Document for Unorganised Worker',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('unorganised_worker_upload'),
+        'access callback' => TRUE,
+     );
+ 
+  return $items;
+}
+
+// function upload_acknowledgement_permission(){
+//   return array(
+//     'download village data list' => array(
+//       'title' => t('Access content for the data download module'),
+//     )
+//   );
+// }
+function upload_acknowledgement_data($form, &$form_state){
+ 
+ 
+  global $user;
+
+  $role = end($user->roles);
+  $user_info = user_load($user->uid);
+  //$household_id = $user_info->field_state['und'][0]['value'].''.$user_info->field_district['und'][0]['value'].''.$user_info->field_tehsil['und'][0]['value'].''.$user_info->field_tehsil['und'][0]['value'];
+   $upl_rural_urban = $_SESSION['upl_rural_urban'];
+  
+  $upl_state = $_SESSION['upl_state_value'];
+  $upl_district = $_SESSION['upl_district_value'];
+  $upl_tehsil = $_SESSION['upl_tehsil_value'];
+  $upl_village = $_SESSION['upl_village_value'];
+  $agency_sees = $_SESSION['agency'];
+  $uw_name = $_SESSION['uw_name'];
+
+  $query = db_select('agency_record', 'ag_r');
+  $query->fields('ag_r');
+  $query->condition('agency', $agency_sees,'=');
+  $result = $query->execute();
+        $data = $result->fetchAssoc();
+        $agent_village_data =  explode(',', $data['village']);
+        
+
+  
+  $house_id = $upl_state.''.$upl_district.''.$upl_tehsil.''.$upl_village;
+  //drupal_set_message('House hold id'.$upl_village.'');
+   // $form['info'] = array(
+   //             '#type' => 'markup',
+   //             '#markup' => ('<h6>The Village data can be Downloaded Only Once</h6>'),
+   //             '#prefix' => '<div id="download_info">',
+   //               '#suffix' => '</div>',
+   //             );
+
+
+$ru = $form_state['values']['rural_urban'];
+ if($ru == 'rural'){
+    $ru_val = 'R';
+ } 
+ if($ru == 'urban'){
+        $ru_val = 'U';
+
+ }
+
+//$form['secc_uw_data'] = array(
+//        '#type' => 'radios',
+//        '#title' => t('Select Data Source'),
+//        '#options' => array(
+//        //'secc_' => t('Socio-Economic Caste Census'),
+//        'uw_' => t('Possible Unorganised Workers based on MoLE Criteria'),
+//        ),
+//        '#required' => TRUE,
+//        //'#default_value' => $_SESSION['secc_uw_data'],
+//        '#default_value' => 'secc_',  
+//        '#prefix' => '<div id="wrapper_area_sec_uowd">',
+//        '#suffix' => '</div>',
+//      );
+
+
+  $form['rural_urban'] = array(
+      '#type' => 'radios',
+      '#title' => t('Select Area'),
+       '#options' => array(
+         'rural' => t('Rural'),
+         'urban' => t('Urban'),
+        ),
+       '#required' => TRUE,
+      '#default_value' => $upl_rural_urban, 
+      '#prefix' => '<div id="wrapper_area_choice">',
+      '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_rural_urban_dta_dwnld',
+            'wrapper' => 'wrapper_rural_urban_dta_dwnld',
+            
+        ),
+
+      );
+
+//echo "<pre>";
+//  print_r($user);
+  $aa = user_load($user->uid);
+ $usermail = $user->mail;
+
+$querynode = db_select('node', 'n');
+              $querynode->fields('n');
+              $querynode->condition('type','agency','=');
+  $resultn = $querynode->execute();
+              $agency_detail = array();
+
+  while ($datanode = $resultn->fetchAssoc()) {
+
+
+        $node =  node_load($datanode['nid']);
+        $emailvalue = field_get_items('node', $node, 'field_email_id');
+        foreach ($emailvalue as $key => $email) {
+
+                   if($email['email'] == $usermail){
+                       $agency_detail = array( 'agency_id' =>$datanode['nid'],
+                                              'agency_mail' =>$email['email'],
+                        ); 
+                      }  
+               } 
+  }
+ $query = db_select('agency_record', 'ag_r');
+              $query->fields('ag_r');
+              $query->condition('ag_r.agency',$agency_detail['agency_id'],'=');
+              $query->condition('ag_r.active','1','=');
+  $data = $query->execute();
+
+   
+          if(($role == 'District') || ($user->uid == 1)){
+            $state_value = $user_info->field_state['und'][0]['value'];
+            $state_list_data = _get_location('state','','','','',$ru_val);
+            $state_list[$state_value] = $state_list_data[$state_value];
+          }
+
+          if(($role == 'Agency')){
+            while($result = $data->fetchAssoc()){
+            $state_value = $result['state'];
+            $state_list_data = _get_location('state','','','','',$ru_val);
+            $state_list['0'] = 'Select';
+            $state_list[$state_value] = $state_list_data[$state_value];
+            }
+            
+          }
+
+  
+       $session_state = ($_SESSION['upl_state_value'] !='') ? $_SESSION['upl_state_value']: key($state_list);
+
+     $state_selected = isset($form_state['values']['state']) ? $form_state['values']['state'] : $session_state;
+    
+    $form['state'] = array(
+        '#title' => 'State',
+        '#type' => 'select',
+        '#options' => $state_list,
+        '#default_value' => $state_selected,
+        '#required' => TRUE,
+        '#ajax' => array(
+            'callback' => 'ajax_callback_state',
+            'wrapper' => 'wrapper_state',
+            
+        ),
+        
+    );
+
+     if(($role == 'District') || ($user->uid == 1)){
+          $district_value = $user_info->field_district['und'][0]['value'];
+          $district_list_data = _get_location('district',$state_selected,'','','',$ru_val);
+          $district_list[$district_value] = $district_list_data[$district_value];
+        }
+
+
+    if(($role == 'Agency') && ($state_selected !='0') ){
+      $query = db_select('agency_record', 'ag_r');
+              $query->fields('ag_r');
+              $query->condition('ag_r.agency',$agency_detail['agency_id'],'=');
+              $query->condition('ag_r.state',$state_selected,'=');
+               $query->condition('ag_r.active','1','=');
+
+              $datas = $query->execute();
+          //   $result = $data->fetchAssoc();
+                 while ($result  = $datas->fetchAssoc()) {
+                    // echo "<pre>";
+                    //  print_r($result);
+            //drupal_set_message('<pre> Agency record data'.print_r($result,TRUE).'</pre>');
+            $district_value = $result['district'];
+            $district_list_data = _get_location('district',$state_selected,'','','',$ru_val);
+            $district_list['0'] = 'Select';
+            $district_list[$district_value] = $district_list_data[$district_value];
+          }
+        }
+        if($state_selected =='0'){
+                      $district_list['0'] = 'Select';
+
+        }
+
+    
+    //$district_list = _get_location('district',$state_selected);
+    $session_district = ($_SESSION['upl_district_value'] !='') ? $_SESSION['upl_district_value']: key($district_list);
+    $district_selected = isset($form_state['values']['district']) ? $form_state['values']['district'] : $session_district;
+    //drupal_set_message('<pre> District Listing'.print_r($district_list,TRUE).'</pre>');
+    $form['district'] = array(
+        '#title' => 'District',
+        '#type' => 'select',
+        '#options' => $district_list,
+        '#default_value' => $district_selected,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_state">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_district',
+            'wrapper' => 'wrapper_tehsil',
+            
+        ),
+   );
+
+  
+    if( ($role == 'District')|| ($user->uid == 1)){
+    $tehsil_list = _get_location('tehsil',$state_selected,$district_selected,'','',$ru_val);
+    $tehsil_value = isset($_SESSION['upl_tehsil_value']) ? $_SESSION['upl_tehsil_value'] : key($tehsil_list);    
+    $tehsil_selected = isset($form_state['values']['tehsil']) ? $form_state['values']['tehsil'] : $tehsil_value; 
+    }
+
+    if( ($role == 'Agency')){
+        
+$queryagency = db_select('agency_record', 'ag_r');
+              $queryagency->fields('ag_r');
+              $queryagency->condition('ag_r.agency',$agency_detail['agency_id'],'=');
+              $queryagency->condition('ag_r.state',$state_selected,'=');
+              $queryagency->condition('ag_r.district',$district_selected,'=');
+              $queryagency->condition('ag_r.active','1','=');
+
+
+  $dataqueryagency = $queryagency->execute();
+ // $resultqueryagency  = $dataqueryagency->fetchAssoc();
+
+
+  $tehsil = array();
+            while ( $resulttehsil  = $dataqueryagency->fetchAssoc()) {
+            //  echo "<pre>";
+            //print_r($resulttehsil);
+
+              $tehsil[] = $resulttehsil['tehsil'];
+                                              
+
+            }
+                     $tehsil_value = $tehsil;
+                     $tehsil_list_data = _get_location('tehsil',$state_selected,$district_selected,'','',$ru_val);
+
+                    $tehsil_list = array();
+                    $tehsil_list['0'] = 'Select';
+                  foreach ($tehsil_value as $key => $tehsil_data) {
+                    $tehsil_list[$tehsil_data] = $tehsil_list_data[$tehsil_data];
+                  }
+        $session_tehsil = ($_SESSION['upl_tehsil_value'] !='') ? $_SESSION['upl_tehsil_value']: key($tehsil_list);
+   $tehsil_selected = isset($form_state['values']['tehsil']) ? $form_state['values']['tehsil'] : $session_tehsil; 
+
+
+    }
+    
+    
+    $form['tehsil'] = array(
+        '#title' => 'Tehsil',
+        '#type' => 'select',
+        '#options' => $tehsil_list,
+        '#default_value' => $tehsil_selected,
+         '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_tehsil">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_tehsil',
+            'wrapper' => 'wrapper_village',
+            
+        )
+    );
+
+  if( ($role == 'District')|| ($user->uid == 1)){
+    $village_list = _get_location('village',$state_selected,$district_selected,$tehsil_selected,'',$ru_val);
+    $vill_session_value = isset($_SESSION['upl_village_value']) ? $_SESSION['upl_village_value'] : key($village_list);
+    $village_selected = isset($form_state['values']['village']) ? $form_state['values']['village'] : $vill_session_value;
+  }
+
+         if( ($role == 'Agency')){
+                         $r_u_v = ($ru_val !='') ? $ru_val: $_SESSION['r_u'];
+
+
+              $village_list_data = _get_location('village',$state_selected,$district_selected,$tehsil_selected,'',$r_u_v);
+              //drupal_set_message('<pre>'.print_r($village_list_data).'');
+              $queryagencyvill = db_select('agency_record', 'ag_r');
+              $queryagencyvill->fields('ag_r');
+              $queryagencyvill->condition('ag_r.agency',$agency_detail['agency_id'],'=');
+              $queryagencyvill->condition('ag_r.state',$state_selected,'=');
+              $queryagencyvill->condition('ag_r.district',$district_selected,'=');
+              $queryagencyvill->condition('ag_r.tehsil',$tehsil_selected,'=');
+              $queryagencyvill->condition('ag_r.active','1','=');
+
+
+
+              $queryagencyvilldata = $queryagencyvill->execute();
+              $village = array();
+                while ( $result  = $queryagencyvilldata->fetchAssoc()) {
+                  $village[] = $result;
+            }
+             $vill_value = $village;
+            
+             $village_s = array();
+             foreach ($vill_value as $key => $village_data) {
+                    
+                  $currentDate = strtotime(date("Y-m-d"));
+                  $DateBegin = strtotime($village_data['dowload_date_from']);
+                  $DateEnd = strtotime($village_data['dowload_date_to']);
+
+                  //if($currentDate > $DateBegin && $currentDate < $DateEnd) {
+                          $village_s[] = explode(',', $village_data['village']);
+                  //} 
+      }
+      //drupal_set_message('<pre>'.print_r($village_s).'');
+                     $resultvill = array();
+                      foreach ($village_s as $key => $village_svalue) {
+                      $resultvill = array_merge($resultvill, $village_svalue);
+
+                    }
+                    
+                 // print_r($resultvill);
+                    $village_list = array();
+                    $village_list['0'] = 'Select';
+                    foreach ($resultvill as $key => $resultvilldata) {
+                      if(!empty($village_list_data[$resultvilldata])){
+                    $village_list[$resultvilldata] = $village_list_data[$resultvilldata];
+                  }
+                  }
+                   $vill_session_value = isset($_SESSION['upl_village_value']) ? $_SESSION['upl_village_value'] : key($village_list);
+                   $village_selected = isset($form_state['values']['village']) ? $form_state['values']['village'] : $vill_session_value;
+
+}
+    
+    $form['village'] = array(
+        '#title' => 'Village/Town',
+        '#type' => 'select',
+        '#options' => $village_list,
+        '#default_value' => $village_selected,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_village">',
+        '#suffix' => '</div>',
+//        '#ajax' => array(
+//            'callback' => 'ajax_callback_state',
+//            'wrapper' = > 'wrapper_state',
+//            
+//        )
+    );
+    $form['uw_name'] = array(
+    '#type' => 'textfield', 
+    '#title' => t('Name Of Unorganised Worker'), 
+    '#default_value' => $uw_name,
+    '#size' => 60, 
+    '#maxlength' => 128, 
+);   
+  
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => 'Submit',
+  );
+  
+  $form['reset'] = array(
+    '#type' => 'submit',
+    '#submit' => array('upload_acknowledgement_reset'),
+    '#value' => t('Reset'),
+  );
+  
+  $fst = $_SESSION['secc_uw_data'];
+  $sec = $upl_rural_urban;
+  $tbl = $fst.''.$sec;
+ 
+ if($tbl != ''){// || $upl_tehsil_urban != '0' || $upl_village_urban != '0'
+ global $user;
+
+
+ $header = array('S.N','AHL TIN', 'KIT Id','Name','Fathers\'s Name','Mother\'s Name','Occupation','View/Upload');
+
+ $current_user = user_load($user->uid);
+ $household_id = $upl_state.''.$upl_district.''.$upl_tehsil.''.$upl_village;
+ $tbl_state = $_SESSION['upl_state_value'];
+ //print $sec;
+ $tbl = 'kit_ahltin_'.$sec.'.individual_'.$upl_state;
+ 
+ 
+//        $query = db_select($tbl, "n");
+//        $query->fields('n',array('name','ahl_tin','ahl_tin','fathername','name_sl','mothername','occupation','yob','hof','genderid','relation','house_hold_id','uw_record'));
+//        if($uw_name != ''){
+//         $query->condition('n.name',db_like($uw_name) . '%', 'LIKE');
+//        }
+//        $query->condition('n.statecode', $upl_state, '=');
+//        $query->condition('n.districtcode', $upl_district, '=');
+//        $query->condition('n.tehsilcode', $upl_tehsil, '=');
+//        $query->condition('n.towncode', $upl_village, '=');
+//        $query = $query->extend('TableSort')->extend('PagerDefault')->limit(20);
+//        $result = $query->execute();  
+ 
+ 
+ 
+        $query = db_select($tbl, "n");
+        $query->fields('n',array('kit_id','ahl_tin'));
+        if($uw_name != ''){
+         $query->condition('n.name',db_like($uw_name) . '%', 'LIKE');
+        }
+        $query->groupBy('kit_id');
+        $query->groupBy('ahl_tin');
+        $query->condition('n.statecode', $upl_state, '=');
+        $query->condition('n.districtcode', $upl_district, '=');
+        $query->condition('n.tehsilcode', $upl_tehsil, '=');
+        $query->condition('n.towncode', $upl_village, '=');
+        $query->orderBy('n.ahl_tin');
+        $query = $query->extend('TableSort')->extend('PagerDefault')->limit(20);
+        $result = $query->execute(); 
+
+
+   
+    
+                          $i = 1;
+                          while($data = $result->fetchObject()){
+                             
+                            $ack = get_acknowledge_detail($data->ahl_tin);
+                            //print_r($ack);
+                            if(!empty($ack)){
+                             $ack_file = file_load($ack['fid']);
+                             $file_name = file_create_url($ack_file->uri);
+                             $upload = l('View',$file_name);
+                            }else{
+                            $upload = l('Upload','uw/'.$data->ahl_tin.'/'.$data->kit_id.'/upload', array('query' => array('mode' => $_GET['q']),'html' => TRUE));
+                            }
+                            
+                            // Get detail of one ahl_tin value
+                            
+                            $detail_qry = db_select($tbl,'a');
+                            $detail_qry->fields('a',array('ahl_tin','kit_id','name','fathername','mothername','occupation'));
+                            $detail_qry->condition('a.ahl_tin',$data->ahl_tin);
+                            $detail_qry->condition('a.kit_id',$data->kit_id);
+                            $kit_result = $detail_qry->execute()->fetchAssoc();
+                            
+                              
+                              $rows[$data->ahl_tin] = array(
+                              $i,    
+                              $data -> ahl_tin,
+                              $data -> kit_id,    
+                              $kit_result['name'],
+                              $kit_result['fathername'],
+                              $kit_result['mothername'],
+                              $kit_result['occupation'],
+                              $upload,
+                             
+                          );
+                            $i++;
+                        }
+    $form['table'] = array(
+     '#theme' => 'table',
+     '#header' => $header,
+     '#rows' => $rows,
+     '#empty' => t('Post Registration Data not Found.')
+   );
+    
+   $form['pager'] = array('#markup' => theme('pager'));
+   
+ }
+return $form;
+
+}
+
+
+  
+function upload_acknowledgement_data_submit($form, &$form_state) {
+  //$function = 'batch_example_' . $form_state['values']['batch'];upl_state_value
+            if($form_state['values']['state'] != '0'){
+                     $_SESSION['upl_state_value'] =  $form_state['values']['state'];
+
+            }
+            if($form_state['values']['district'] != '0'){
+                     $_SESSION['upl_district_value'] =  $form_state['values']['district'];
+
+            }
+            if($form_state['values']['rural_urban'] != '0'){
+                     $_SESSION['upl_rural_urban'] =  $form_state['values']['rural_urban'];
+
+            }
+             if ($form_state['values']['tehsil'] != '') {
+                              $_SESSION['upl_tehsil_value'] =  $form_state['values']['tehsil'];
+
+              }
+              if ($form_state['values']['village'] != '') {
+
+                           $_SESSION['upl_village_value'] =  $form_state['values']['village'];
+
+               }
+                 if ($form_state['values']['uw_name'] != '') {
+
+                           $_SESSION['uw_name'] =  $form_state['values']['uw_name'];
+
+               }
+
+
+               if ($form_state['values']['secc_uw_data'] != '') {
+
+                 $_SESSION['secc_uw_data'] =  $form_state['values']['secc_uw_data'];
+
+      }
+
+
+
+
+              
+  //drupal_set_message('district'.$form_state['values']['state'].'dis '.$form_state['values']['district'].'teh '.$form_state['values']['tehsil'].'vill'.$form_state['values']['village']);             
+ }
+
+ function upload_acknowledgement_reset(){
+
+   if($_SESSION['upl_state_value'] !=''){
+              unset($_SESSION['upl_state_value']);
+            }
+            if($_SESSION['upl_district_value'] !=''){
+              unset($_SESSION['upl_district_value']);
+            }
+
+            if($_SESSION['upl_rural_urban'] !=''){
+              unset($_SESSION['upl_rural_urban']);
+            }
+            if($_SESSION['upl_tehsil_value'] !=''){
+              unset($_SESSION['upl_tehsil_value']);
+            }
+            if($_SESSION['upl_village_value'] !=''){
+               unset($_SESSION['upl_village_value']);
+            }
+            if($_SESSION['uw_name'] !=''){
+              unset($_SESSION['uw_name']);
+            }
+   
+           if($_SESSION['secc_uw_data'] !=''){
+              unset($_SESSION['secc_uw_data']);
+            }
+            
+            
+ }
+
+function unorganised_worker_upload($form_state){
+
+  $form = array();
+  // If this #attribute is not present, upload will fail on submit
+  $form['#attributes']['enctype'] = 'multipart/form-data';
+  $form['file_upload'] = array(
+    '#title' => t('Upload file'),
+    '#type'  => 'file',
+    '#description' => t('Upload a file, allowed extensions: pdf'),
+
+  );
+  $form['submit_upload'] = array(
+    '#type'  =>  'submit', 
+    '#value'  =>  'Submit'
+  );
+  return $form;
+}
+
+function unorganised_worker_upload_validate($form, &$form_state) {
+    //form_set_error('',t('Thanks For Using me..'));
+    
+    $file = file_save_upload('file_upload', array(
+      //'file_validate_is_image' => array(),
+      'file_validate_extensions' => array('pdf'),
+  ));
+  if ($file) {
+    if ($file = file_move($file, 'public://')) {
+      $form_state['values']['file_upload'] = $file;
+    }
+    else {
+      form_set_error('file', t('Failed to write the uploaded file the site\'s file folder.'));
+    }
+  }
+  else {
+    form_set_error('file', t('No file was uploaded.'));
+  }
+  
+}
+
+function unorganised_worker_upload_submit($form, &$form_state) {
+ 
+  $file=$form_state['values']['file_upload'];
+  unset($form_state['values']['file_upload']);
+  $file->status = FILE_STATUS_PERMANENT;
+  file_save($file);
+  //drupal_set_message('<pre>'.print_r($file,TRUE).'</pre>');
+  
+  try{
+      $ack = db_insert('upload_acknowledgement')
+      ->fields(array(
+          'ahl_tin' => arg(1),
+          'fid' => $file->fid,
+          'date_upload' => REQUEST_TIME,
+          'state' => $_SESSION['upl_state_value'],
+          'district' => $_SESSION['upl_district_value'],
+          'tehsil' => $_SESSION['upl_tehsil_value'],
+          'village_town' => $_SESSION['upl_village_value'],
+      ))
+      ->execute();
+      
+  } catch (Exception $ex) {
+        
+  }
+  
+  //updatre kit_ahl_tin on main table
+  $kk = 'kit_ahltin_'.$_SESSION['upl_rural_urban'].'.individual_'.$_SESSION['upl_state_value'];
+  
+  $up_ahltin = arg(1);
+  $up_kit_id = arg(2);
+  
+$qry = db_update($kk)
+        ->fields(array(
+        'upload_document' => '1',
+        ))
+        ->condition('ahl_tin',$up_ahltin)
+        ->condition('kit_id',$up_kit_id)
+        ->execute();
+  
+  drupal_set_message(t('Your Acknowledge has been saved, filename: @filename.', array('@filename' => $file->filename)));
+  drupal_goto('upload-acknowledgement');
+
+}
+
+
+
+function get_acknowledge_detail($ahl_tin){
+    
+    $ack_qry = db_select('upload_acknowledgement','a')
+               ->fields('a')
+               ->condition('a.ahl_tin',$ahl_tin)
+               ->execute()->fetchAssoc();
+  
+    return $ack_qry;
+
+    
+}
+
+

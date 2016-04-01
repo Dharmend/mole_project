@@ -1,0 +1,1306 @@
+<?php
+
+function list_duplicate_and_fresh_record_permission() {
+  return array(
+    'access list of duplicate content' => array(
+      'title' => t('Access list of duplicate record module'),
+    )
+  );
+}
+
+function list_duplicate_and_fresh_record_menu(){
+    $items['duplicate-record'] = array(
+        'title' => 'List of Duplicate Records',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('duplicate_record'),
+        'access arguments' => array('access list of duplicate content'),
+        'type' => MENU_NORMAL_ITEM,
+
+      //  'access callback' => TRUE,
+     );
+    $items['clear-record'] = array(
+        'title' => 'List of Clear Records',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('clear_record'),
+        'access arguments' => array('access list of duplicate content'),
+        'type' => MENU_NORMAL_ITEM,
+
+        //'access callback' => TRUE,
+     );
+
+     $items['generated-ssid-record'] = array(
+        'title' => 'List of Clear Records',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('generated_ssid_record'),
+        'access arguments' => array('access list of duplicate content'),
+        'type' => MENU_NORMAL_ITEM,
+
+        //'access callback' => TRUE,
+     );
+      $items['card-issurance-ssid-record'] = array(
+        'title' => 'Card Issurance SSID Records',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('card_issurance_ssid_record'),
+        'access arguments' => array('access list of duplicate content'),
+        'type' => MENU_NORMAL_ITEM,
+
+        //'access callback' => TRUE,
+     );
+	
+    return $items;
+}
+
+
+function duplicate_record($form,&$form_state){
+   
+  global $user;
+  $role = end($user->roles);
+  $user_info = user_load($user->uid);
+//Add Code for agency role
+global $user;
+$aa = user_load($user->uid);
+$usermail = $user->mail;
+$querynode = db_select('node', 'n');
+              $querynode->fields('n');
+              $querynode->condition('type','agency','=');
+  $resultn = $querynode->execute();
+  while ($datanode = $resultn->fetchAssoc()) {
+//echo $datanode['nid'];
+
+ $node =  node_load($datanode['nid']);
+   $emailvalue = field_get_items('node', $node, 'field_email_id');
+   foreach ($emailvalue as $key => $email) {
+
+  $agency_detail = array();
+if($email['email'] == $usermail){
+ $agency_detail = array( 'agency_id' =>$datanode['nid'],
+                        'agency_mail' =>$email['email'],
+  ); 
+   }
+  
+} 
+  }
+ $query = db_select('agency_record', 'ag_r');
+              $query->fields('ag_r');
+              $query->condition('ag_r.agency',$agency_detail['agency_id'],'=');
+  $result = $query->execute()->fetchAssoc();
+
+//End code for agency role
+  
+    if(($role == 'MOLE') ||($user->uid == 1)){
+            $state_list = _get_location('state');
+          }
+          if(($role == 'State') || ($role == 'District') || ($role == 'Tehsil') || ($role == 'Agent')){
+            $state_value = $user_info->field_state['und'][0]['value'];
+            $state_list_data = _get_location('state');
+            $state_list[$state_value] = $state_list_data[$state_value];
+          }
+          if(($role == 'Agency')){
+            $state_value = $result['state'];
+            $state_list_data = _get_location('state');
+            $state_list[$state_value] = $state_list_data[$state_value];
+  }
+          
+   $session_state = ($_SESSION['state_value'] !='') ? $_SESSION['state_value']: key($state_list);
+
+    
+  $state_selected = isset($form_state['values']['state']) ? $form_state['values']['state'] : $session_state;
+    
+    $form['state'] = array(
+        '#title' => 'State',
+        '#type' => 'select',
+        '#options' => $state_list,
+        '#default_value' => $state_selected,
+        '#required' => TRUE,
+        '#ajax' => array(
+            'callback' => 'ajax_callback_state',
+            'wrapper' => 'wrapper_state',
+            
+        ),
+        
+    );
+
+     if(($role == 'District') || ($role == 'Tehsil') || ($role == 'Agent')){
+          $district_value = $user_info->field_district['und'][0]['value'];
+          $district_list_data = _get_location('district',$state_selected);
+          $district_list[$district_value] = $district_list_data[$district_value];
+        }
+
+    if(($role == 'State')||($role == 'MOLE') ||(($user->uid == 1))){
+        $district_list = _get_location('district',$state_selected);
+    }
+     if(($role == 'Agency') ){
+          $district_value = $result['district'];
+          $district_list_data = _get_location('district',$state_selected);
+          $district_list[$district_value] = $district_list_data[$district_value];
+    }
+     $session_district = ($_SESSION['district_value'] !='') ? $_SESSION['district_value']: key($district_list);
+
+   
+  //  $district_list = _get_location('district',$state_selected);
+    $district_selected = isset($form_state['values']['district']) ? $form_state['values']['district'] : $session_district;
+    $form['district'] = array(
+        '#title' => 'District',
+        '#type' => 'select',
+        '#options' => $district_list,
+        '#default_value' => $district_selected,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_state">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_district',
+            'wrapper' => 'wrapper_tehsil',
+            
+        ),
+        
+    );
+
+    if(($role == 'Tehsil') || ($role == 'Agent')){
+         $tehsil_value = $user_info->field_tehsil['und'][0]['value'];
+          $tahsil_list_data = _get_location('tehsil',$state_selected,$district_selected);
+          $tehsil_list[$tehsil_value] = $tahsil_list_data[$tehsil_value];
+        }
+
+    if(($role == 'State') || ($role == 'District') || ($role == 'MOLE')||($user->uid == 1)){
+    $tehsil_list = _get_location('tehsil',$state_selected,$district_selected);
+    }
+    
+    if( ($role == 'Agency')){
+    
+    $tehsil_value = $result['tehsil'];
+    $tehsil_list_data = _get_location('tehsil',$state_selected,$district_selected);
+    $tehsil_list[$tehsil_value] = $tehsil_list_data[$tehsil_value];
+    $tehsil_selected = isset($form_state['values']['tehsil']) ? $form_state['values']['tehsil'] : key($tehsil_list); 
+
+    }
+
+     $session_tehsil = ($_SESSION['tehsil_value'] !='') ? $_SESSION['tehsil_value']: key($tehsil_list);
+
+    
+  //  $tehsil_list = _get_location('tehsil',$state_selected,$district_selected);
+    $tehsil_selected = isset($form_state['values']['tehsil']) ? $form_state['values']['tehsil'] : $session_tehsil; 
+    $form['tehsil'] = array(
+        '#title' => 'Tehsil',
+        '#type' => 'select',
+        '#options' => $tehsil_list,
+        '#default_value' => $tehsil_selected,
+         '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_tehsil">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_tehsil',
+            'wrapper' => 'wrapper_village',
+            
+        )
+    );
+    
+
+        if(($role == 'Agent')){
+      
+         $village_value = $user_info->field_village['und'][0]['value'];
+          $village_list_data = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+          $village_list[$village_value] = $village_list_data[$village_value];
+        }
+
+    if(($role == 'Tehsil') || ($role == 'State') || ($role == 'District') || ($role == 'MOLE')||($user->uid == 1)){
+    $village_list = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+    }
+    if( ($role == 'Agency')){
+            $village_list_data = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+            $vill_value = explode(',', $result['village']);
+                 
+            $village_list = array();
+            foreach ($vill_value as $key => $village_data) {
+                    $village_list[$village_data] = $village_list_data[$village_data];
+            }
+            $vill_session_value = isset($_SESSION['dow_village_value']) ? $_SESSION['dow_village_value'] : key($village_list);
+            $village_selected = isset($form_state['values']['village']) ? $form_state['values']['village'] : $vill_session_value;
+
+    }
+     $session_village = ($_SESSION['village_value'] !='') ? $_SESSION['village_value']: key($village_list);
+
+    //$village_list = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+    $village_selected = isset($form_state['values']['village']) ? $form_state['values']['village'] : $session_village;
+    $form['village'] = array(
+        '#title' => 'Village/Town',
+        '#type' => 'select',
+        '#options' => $village_list,
+        '#default_value' => $village_selected,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_village">',
+        '#suffix' => '</div>',
+    );
+     
+$form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+
+ $form['reset'] = array(
+    '#type' => 'submit',
+    '#submit' => array('search_reset'),
+    '#value' => t('Reset'),
+  );
+
+
+if(!empty($session_state)){
+
+ $house_hold_id = $session_state.''.$session_district.''.$session_tehsil.''.$session_village;
+  
+ $header = array('S.N','AHL TIN','House-Hold ID', 'Member S.No','Name', 'Name(Regional)','Fathers\'s Name','Mother\'s Name','Occupation','YoB (YYYY)/DoB (DD/MM/YYYY)','HoF','Gender','Relation With HOF');
+ 
+
+  $query = db_select("duplicate_recods.individual_".$session_state, "n");
+  $query->fields('n');
+  
+//   $query->where('substr(house_hold_id,1,11) = :hid',array(':hid' => $house_hold_id));
+    $query->condition('n.statecode', $session_state, '=');
+   $query->condition('n.districtcode', $session_district, '=');
+   $query->condition('n.tehsilcode', $session_tehsil, '=');
+   $query->condition('n.towncode', $session_village, '=');
+
+  $query = $query->extend('TableSort')->extend('PagerDefault')->limit(20);
+  $result = $query->execute();
+  
+  $rows = array();
+     $page =($_GET['page']*20);
+
+                $i = $page+1;
+                while($data = $result->fetchObject()){
+
+                    $rows[$data->ahl_tin] = array(
+                    $i,
+                    $data->ahl_tin,      
+                    $data->house_hold_id,
+                    $data->slnomember,
+                    $data->name,
+                    $data->name_sl,    
+                    $data->fathername,
+                    $data->mothername,
+                    $data->occupation,
+                    $data->yob,    
+                    get_hof($data->hof),
+                    get_gender($data->genderid),
+                    $data->relation,
+                );
+                  $i++;
+              }
+
+
+ 			$form['table'] = array(
+            '#theme' => 'table',
+            '#header' => $header,
+            '#rows' => $rows,
+            '#empty' => t('Table has no row!'),
+            '#prefix' => "<div id='my_printable_div'>",
+            '#suffix' => "</div>",
+          );
+
+		$form['pager'] = array('#markup' => theme('pager'));
+}
+    	return $form;
+}
+
+function duplicate_record_submit($form,&$form_state){
+
+if($form_state['values']['state'] != '0'){
+           $_SESSION['state_value'] =  $form_state['values']['state'];
+
+       }
+       if ($form_state['values']['district'] != '') {
+            $_SESSION['district_value'] =  $form_state['values']['district'];
+           
+       }
+       if ($form_state['values']['tehsil'] != '') {
+                    $_SESSION['tehsil_value'] =  $form_state['values']['tehsil'];
+
+       }
+       if ($form_state['values']['village'] != '') {
+
+                 $_SESSION['village_value'] =  $form_state['values']['village'];
+
+       }
+
+
+}
+
+
+function clear_record($form,&$form_state){
+  
+  global $user;
+  $role = end($user->roles);
+  $user_info = user_load($user->uid);
+
+  //Add Code for agency role
+global $user;
+$aa = user_load($user->uid);
+$usermail = $user->mail;
+$querynode = db_select('node', 'n');
+              $querynode->fields('n');
+              $querynode->condition('type','agency','=');
+  $resultn = $querynode->execute();
+  while ($datanode = $resultn->fetchAssoc()) {
+//echo $datanode['nid'];
+
+ $node =  node_load($datanode['nid']);
+   $emailvalue = field_get_items('node', $node, 'field_email_id');
+   foreach ($emailvalue as $key => $email) {
+
+  $agency_detail = array();
+if($email['email'] == $usermail){
+ $agency_detail = array( 'agency_id' =>$datanode['nid'],
+                        'agency_mail' =>$email['email'],
+  ); 
+   }
+  
+} 
+  }
+ $query = db_select('agency_record', 'ag_r');
+              $query->fields('ag_r');
+              $query->condition('ag_r.agency',$agency_detail['agency_id'],'=');
+  $result = $query->execute()->fetchAssoc();
+
+//End code for agency role
+  
+    if(($role == 'MOLE') ||($user->uid == 1)){
+            $state_list = _get_location('state');
+          }
+          if(($role == 'State') || ($role == 'District') || ($role == 'Tehsil') || ($role == 'Agent')){
+            $state_value = $user_info->field_state['und'][0]['value'];
+            $state_list_data = _get_location('state');
+            $state_list[$state_value] = $state_list_data[$state_value];
+          }
+          if(($role == 'Agency')){
+            $state_value = $result['state'];
+            $state_list_data = _get_location('state');
+            $state_list[$state_value] = $state_list_data[$state_value];
+  }
+   $session_state = ($_SESSION['state_value'] !='') ? $_SESSION['state_value']: key($state_list);
+
+    
+  $state_selected = isset($form_state['values']['state']) ? $form_state['values']['state'] : $session_state;
+    
+    $form['state'] = array(
+        '#title' => 'State',
+        '#type' => 'select',
+        '#options' => $state_list,
+        '#default_value' => $state_selected,
+        '#required' => TRUE,
+        '#ajax' => array(
+            'callback' => 'ajax_callback_state',
+            'wrapper' => 'wrapper_state',
+            
+        ),
+        
+    );
+
+     if(($role == 'District') || ($role == 'Tehsil') || ($role == 'Agent')){
+          $district_value = $user_info->field_district['und'][0]['value'];
+          $district_list_data = _get_location('district',$state_selected);
+          $district_list[$district_value] = $district_list_data[$district_value];
+        }
+
+    if(($role == 'State')||($role == 'MOLE') ||(($user->uid == 1))){
+        $district_list = _get_location('district',$state_selected);
+    }
+    if(($role == 'Agency') ){
+          $district_value = $result['district'];
+          $district_list_data = _get_location('district',$state_selected);
+          $district_list[$district_value] = $district_list_data[$district_value];
+    }
+     $session_district = ($_SESSION['district_value'] !='') ? $_SESSION['district_value']: key($district_list);
+
+
+  //  $district_list = _get_location('district',$state_selected);
+    $district_selected = isset($form_state['values']['district']) ? $form_state['values']['district'] : $session_district;
+    $form['district'] = array(
+        '#title' => 'District',
+        '#type' => 'select',
+        '#options' => $district_list,
+        '#default_value' => $district_selected,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_state">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_district',
+            'wrapper' => 'wrapper_tehsil',
+            
+        ),
+        
+    );
+
+    if(($role == 'Tehsil') || ($role == 'Agent')){
+         $tehsil_value = $user_info->field_tehsil['und'][0]['value'];
+          $tahsil_list_data = _get_location('tehsil',$state_selected,$district_selected);
+          $tehsil_list[$tehsil_value] = $tahsil_list_data[$tehsil_value];
+        }
+
+    if(($role == 'State') || ($role == 'District') || ($role == 'MOLE')||($user->uid == 1)){
+    $tehsil_list = _get_location('tehsil',$state_selected,$district_selected);
+    }
+    if( ($role == 'Agency')){
+    
+    $tehsil_value = $result['tehsil'];
+    $tehsil_list_data = _get_location('tehsil',$state_selected,$district_selected);
+    $tehsil_list[$tehsil_value] = $tehsil_list_data[$tehsil_value];
+    $tehsil_selected = isset($form_state['values']['tehsil']) ? $form_state['values']['tehsil'] : key($tehsil_list); 
+
+    }
+
+     $session_tehsil = ($_SESSION['tehsil_value'] !='') ? $_SESSION['tehsil_value']: key($tehsil_list);
+
+    
+  //  $tehsil_list = _get_location('tehsil',$state_selected,$district_selected);
+    $tehsil_selected = isset($form_state['values']['tehsil']) ? $form_state['values']['tehsil'] : $session_tehsil; 
+    $form['tehsil'] = array(
+        '#title' => 'Tehsil',
+        '#type' => 'select',
+        '#options' => $tehsil_list,
+        '#default_value' => $tehsil_selected,
+         '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_tehsil">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_tehsil',
+            'wrapper' => 'wrapper_village',
+            
+        )
+    );
+    
+
+        if(($role == 'Agent')){
+      
+         $village_value = $user_info->field_village['und'][0]['value'];
+          $village_list_data = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+          $village_list[$village_value] = $village_list_data[$village_value];
+        }
+
+    if(($role == 'Tehsil') || ($role == 'State') || ($role == 'District') || ($role == 'MOLE')||($user->uid == 1)){
+    $village_list = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+    }
+     if( ($role == 'Agency')){
+            $village_list_data = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+            $vill_value = explode(',', $result['village']);
+                 
+            $village_list = array();
+            foreach ($vill_value as $key => $village_data) {
+                    $village_list[$village_data] = $village_list_data[$village_data];
+            }
+            $vill_session_value = isset($_SESSION['dow_village_value']) ? $_SESSION['dow_village_value'] : key($village_list);
+            $village_selected = isset($form_state['values']['village']) ? $form_state['values']['village'] : $vill_session_value;
+
+    }
+     $session_village = ($_SESSION['village_value'] !='') ? $_SESSION['village_value']: key($village_list);
+
+    //$village_list = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+    $village_selected = isset($form_state['values']['village']) ? $form_state['values']['village'] : $session_village;
+    $form['village'] = array(
+        '#title' => 'Village/Town',
+        '#type' => 'select',
+        '#options' => $village_list,
+        '#default_value' => $village_selected,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_village">',
+        '#suffix' => '</div>',
+    );
+     
+$form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+
+ $form['reset'] = array(
+    '#type' => 'submit',
+    '#submit' => array('search_reset'),
+    '#value' => t('Reset'),
+  );
+
+
+if(!empty($session_state)){
+
+
+ $house_hold_id = $session_state.''.$session_district.''.$session_tehsil.''.$session_village;
+  
+ $header = array('S.N','AHL TIN','House-Hold ID', 'Member S.No','Name', 'Name(Regional)','Fathers\'s Name','Mother\'s Name','Occupation','YoB (YYYY)/DoB (DD/MM/YYYY)','HoF','Gender','Relation With HOF');
+ 
+
+  $query = db_select("fresh_records.individual_".$session_state, "n");
+  $query->fields('n');
+  
+   //$query->where('substr(house_hold_id,1,11) = :hid',array(':hid' => $house_hold_id));
+  $query->condition('n.statecode', $session_state, '=');
+   $query->condition('n.districtcode', $session_district, '=');
+   $query->condition('n.tehsilcode', $session_tehsil, '=');
+   $query->condition('n.towncode', $session_village, '=');
+
+
+  $query = $query->extend('TableSort')->extend('PagerDefault')->limit(20);
+  $result = $query->execute();
+  
+  $rows = array();
+  
+               $page =($_GET['page']*20);
+
+                $i = $page+1;
+                while($data = $result->fetchObject()){
+
+                    $rows[$data->ahl_tin] = array(
+                    $i,
+                    $data->ahl_tin,      
+                    $data->house_hold_id,
+                    $data->slnomember,
+                    $data->name,
+                    $data->name_sl,    
+                    $data->fathername,
+                    $data->mothername,
+                    $data->occupation,
+                    $data->yob,    
+                    get_hof($data->hof),
+                    get_gender($data->genderid),
+                    $data->relation,
+                );
+                  $i++;
+              }
+
+
+ 			$form['table'] = array(
+            '#theme' => 'table',
+            '#header' => $header,
+            '#rows' => $rows,
+            '#empty' => t('Table has no row!'),
+            '#prefix' => "<div id='my_printable_div'>",
+            '#suffix' => "</div>",
+          );
+
+		$form['pager'] = array('#markup' => theme('pager'));
+}
+    	return $form;
+	
+}
+
+function clear_record_submit($form,&$form_state){
+
+	if($form_state['values']['state'] != '0'){
+           $_SESSION['state_value'] =  $form_state['values']['state'];
+
+       }
+       if ($form_state['values']['district'] != '') {
+            $_SESSION['district_value'] =  $form_state['values']['district'];
+           
+       }
+       if ($form_state['values']['tehsil'] != '') {
+                    $_SESSION['tehsil_value'] =  $form_state['values']['tehsil'];
+
+       }
+       if ($form_state['values']['village'] != '') {
+
+                 $_SESSION['village_value'] =  $form_state['values']['village'];
+
+       }
+
+}
+
+function generated_ssid_record($form,&$form_state){
+
+ 
+  global $user;
+  $role = end($user->roles);
+  $user_info = user_load($user->uid);
+
+  //Add Code for agency role
+global $user;
+$aa = user_load($user->uid);
+$usermail = $user->mail;
+$querynode = db_select('node', 'n');
+              $querynode->fields('n');
+              $querynode->condition('type','agency','=');
+  $resultn = $querynode->execute();
+  while ($datanode = $resultn->fetchAssoc()) {
+//echo $datanode['nid'];
+
+ $node =  node_load($datanode['nid']);
+   $emailvalue = field_get_items('node', $node, 'field_email_id');
+   foreach ($emailvalue as $key => $email) {
+
+  $agency_detail = array();
+if($email['email'] == $usermail){
+ $agency_detail = array( 'agency_id' =>$datanode['nid'],
+                        'agency_mail' =>$email['email'],
+  ); 
+   }
+  
+} 
+  }
+ $query = db_select('agency_record', 'ag_r');
+              $query->fields('ag_r');
+              $query->condition('ag_r.agency',$agency_detail['agency_id'],'=');
+  $result = $query->execute()->fetchAssoc();
+
+//End code for agency role
+  
+    if(($role == 'MOLE') ||($user->uid == 1)){
+            $state_list = _get_location('state');
+          }
+          if(($role == 'State') || ($role == 'District') || ($role == 'Tehsil') || ($role == 'Agent')){
+            $state_value = $user_info->field_state['und'][0]['value'];
+            $state_list_data = _get_location('state');
+            $state_list[$state_value] = $state_list_data[$state_value];
+          }
+          if(($role == 'Agency')){
+            $state_value = $result['state'];
+            $state_list_data = _get_location('state');
+            $state_list[$state_value] = $state_list_data[$state_value];
+  }
+   $session_state = ($_SESSION['state_value_ssid'] !='') ? $_SESSION['state_value_ssid']: key($state_list);
+
+    
+  $state_selected = isset($form_state['values']['state']) ? $form_state['values']['state'] : $session_state;
+    
+    $form['state'] = array(
+        '#title' => 'State',
+        '#type' => 'select',
+        '#options' => $state_list,
+        '#default_value' => $state_selected,
+        '#required' => TRUE,
+        '#ajax' => array(
+            'callback' => 'ajax_callback_state',
+            'wrapper' => 'wrapper_state',
+            
+        ),
+        
+    );
+
+     if(($role == 'District') || ($role == 'Tehsil') || ($role == 'Agent')){
+          $district_value = $user_info->field_district['und'][0]['value'];
+          $district_list_data = _get_location('district',$state_selected);
+          $district_list[$district_value] = $district_list_data[$district_value];
+        }
+
+    if(($role == 'State')||($role == 'MOLE') ||(($user->uid == 1))){
+        $district_list = _get_location('district',$state_selected);
+    }
+    if(($role == 'Agency') ){
+          $district_value = $result['district'];
+          $district_list_data = _get_location('district',$state_selected);
+          $district_list[$district_value] = $district_list_data[$district_value];
+    }
+     $session_district = ($_SESSION['district_value_ssid'] !='') ? $_SESSION['district_value_ssid']: key($district_list);
+
+
+  //  $district_list = _get_location('district',$state_selected);
+    $district_selected = isset($form_state['values']['district']) ? $form_state['values']['district'] : $session_district;
+    $form['district'] = array(
+        '#title' => 'District',
+        '#type' => 'select',
+        '#options' => $district_list,
+        '#default_value' => $district_selected,
+        //'#required' => TRUE,
+        '#prefix' => '<div id="wrapper_state">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_district',
+            'wrapper' => 'wrapper_tehsil',
+            
+        ),
+        
+    );
+
+    if(($role == 'Tehsil') || ($role == 'Agent')){
+         $tehsil_value = $user_info->field_tehsil['und'][0]['value'];
+          $tahsil_list_data = _get_location('tehsil',$state_selected,$district_selected);
+          $tehsil_list[$tehsil_value] = $tahsil_list_data[$tehsil_value];
+        }
+
+    if(($role == 'State') || ($role == 'District') || ($role == 'MOLE')||($user->uid == 1)){
+    $tehsil_list = _get_location('tehsil',$state_selected,$district_selected);
+    }
+    if( ($role == 'Agency')){
+    
+    $tehsil_value = $result['tehsil'];
+    $tehsil_list_data = _get_location('tehsil',$state_selected,$district_selected);
+    $tehsil_list[$tehsil_value] = $tehsil_list_data[$tehsil_value];
+    $tehsil_selected = isset($form_state['values']['tehsil']) ? $form_state['values']['tehsil'] : key($tehsil_list); 
+
+    }
+
+     $session_tehsil = ($_SESSION['tehsil_value_ssid'] !='') ? $_SESSION['tehsil_value_ssid']: key($tehsil_list);
+
+    
+  //  $tehsil_list = _get_location('tehsil',$state_selected,$district_selected);
+    $tehsil_selected = isset($form_state['values']['tehsil']) ? $form_state['values']['tehsil'] : $session_tehsil; 
+    $form['tehsil'] = array(
+        '#title' => 'Tehsil',
+        '#type' => 'select',
+        '#options' => $tehsil_list,
+        '#default_value' => $tehsil_selected,
+        // '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_tehsil">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_tehsil',
+            'wrapper' => 'wrapper_village',
+            
+        )
+    );
+    
+
+        if(($role == 'Agent')){
+      
+         $village_value = $user_info->field_village['und'][0]['value'];
+          $village_list_data = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+          $village_list[$village_value] = $village_list_data[$village_value];
+        }
+
+    if(($role == 'Tehsil') || ($role == 'State') || ($role == 'District') || ($role == 'MOLE')||($user->uid == 1)){
+    $village_list = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+    }
+     if( ($role == 'Agency')){
+            $village_list_data = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+            $vill_value = explode(',', $result['village']);
+                 
+            $village_list = array();
+            foreach ($vill_value as $key => $village_data) {
+                    $village_list[$village_data] = $village_list_data[$village_data];
+            }
+            $vill_session_value = isset($_SESSION['village_value_ssid']) ? $_SESSION['village_value_ssid'] : key($village_list);
+            $village_selected = isset($form_state['values']['village']) ? $form_state['values']['village'] : $vill_session_value;
+
+    }
+     $session_village = ($_SESSION['village_value_ssid'] !='') ? $_SESSION['village_value_ssid']: key($village_list);
+
+    //$village_list = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+    $village_selected = isset($form_state['values']['village']) ? $form_state['values']['village'] : $session_village;
+    $form['village'] = array(
+        '#title' => 'Village/Town',
+        '#type' => 'select',
+        '#options' => $village_list,
+        '#default_value' => $village_selected,
+      //  '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_village">',
+        '#suffix' => '</div>',
+    );
+     
+$form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+
+ $form['reset'] = array(
+    '#type' => 'submit',
+    '#submit' => array('search_reset_generated'),
+    '#value' => t('Reset'),
+  );
+
+
+if($session_district == '0'){
+  $district_val ='';
+} else{
+    $district_val =$session_district;
+
+}
+
+if($session_tehsil == '0'){
+  print "adasdasdsd";
+  $tehsil_val ='';
+}
+else{
+    $tehsil_val =$session_tehsil;
+
+}
+
+if($session_village == '0'){
+  $village_val ='';
+}
+else{
+    $village_val =$session_village;
+
+}
+//die('assdj');
+if(!empty($session_state)){
+
+
+  $house_hold_id = $session_state.''.$session_district.''.$tehsil_val.''.$village_val;
+ $header = array('S.N','AHL TIN','House-Hold ID', 'Member S.No','Name', 'Name(Regional)','Fathers\'s Name','Mother\'s Name','Occupation','YoB (YYYY)/DoB (DD/MM/YYYY)','HoF','Gender','Relation With HOF','SSID', 'Batch');
+ 
+
+  $query = db_select("ssid_generated_data.uwssid", "n");
+  $query->fields('n');
+  //$query->condition('house_hold_id', '%'. db_like($house_hold_id) . '%', 'LIKE'); 
+  if((!empty($session_state)) && (!empty($session_district)) && (!empty($tehsil_val)) && (!empty($village_val))){
+     $query->condition('statecode', $session_state, '=');
+     $query->condition('districtcode', $session_district, '=');
+     $query->condition('tehsilcode', $tehsil_val, '=');
+     $query->condition('towncode', $village_val, '=');     
+   }
+   if((!empty($session_state)) && (!empty($session_district)) && (!empty($tehsil_val))){
+     $query->condition('statecode', $session_state, '=');
+     $query->condition('districtcode', $session_district, '=');
+     $query->condition('tehsilcode', $tehsil_val, '=');
+   }
+   if((!empty($session_state)) && (!empty($session_district))){
+     $query->condition('statecode', $session_state, '=');
+     $query->condition('districtcode', $session_district, '=');        
+   }
+   if((!empty($session_state))){
+     $query->condition('statecode', $session_state, '=');      
+   }
+
+   $query->condition('ssid', '', '!=');  
+   //$query->where('substr(house_hold_id,1,11) = :hid',array(':hid' => $house_hold_id));
+  $query = $query->extend('TableSort')->extend('PagerDefault')->limit(20);
+  $result = $query->execute();
+  
+  $rows = array();
+  
+               $page =($_GET['page']*20);
+
+                $i = $page+1;
+                while($data = $result->fetchObject()){
+                
+                    $rows[$data->ahl_tin] = array(
+                    $i,
+                    $data->ahl_tin,      
+                    $data->house_hold_id,
+                    $data->slnomember,
+                    $data->name,
+                    $data->name_sl,    
+                    $data->fathername,
+                    $data->mothername,
+                    $data->occupation,
+                    $data->yob,    
+                    get_hof($data->hof),
+                    get_gender($data->genderid),
+                    $data->relation,
+                    $data->ssid,
+                    $data->ssid_batch,
+                );
+                  $i++;
+              }
+
+
+      $form['table'] = array(
+            '#theme' => 'table',
+            '#header' => $header,
+            '#rows' => $rows,
+            '#empty' => t('Table has no row!'),
+            '#prefix' => "<div id='my_printable_div'>",
+            '#suffix' => "</div>",
+          );
+
+    $form['pager'] = array('#markup' => theme('pager'));
+}
+      return $form;
+
+
+
+
+
+
+
+}
+
+
+function generated_ssid_record_submit($form,&$form_state){
+
+
+  if($form_state['values']['state'] != '0'){
+           $_SESSION['state_value_ssid'] =  $form_state['values']['state'];
+
+       }
+       if ($form_state['values']['district'] != '') {
+            $_SESSION['district_value_ssid'] =  $form_state['values']['district'];
+           
+       }
+       if ($form_state['values']['tehsil'] != '') {
+                    $_SESSION['tehsil_value_ssid'] =  $form_state['values']['tehsil'];
+
+       }
+       if ($form_state['values']['village'] != '') {
+
+                 $_SESSION['village_value_ssid'] =  $form_state['values']['village'];
+
+       }
+  
+}
+
+function search_reset_generated(){
+
+  if($_SESSION['state_value_ssid'] != ''){
+          unset($_SESSION['state_value_ssid']);
+
+       }
+       if ($_SESSION['district_value_ssid'] != '') {
+            unset($_SESSION['district_value_ssid']);
+           
+       }
+       if ($_SESSION['tehsil_value_ssid'] != '') {
+                    unset($_SESSION['tehsil_value_ssid']);
+
+       }
+       if ($_SESSION['village_value_ssid'] != '') {
+
+                 unset($_SESSION['village_value_ssid']);
+
+       }
+
+
+}
+
+function card_issurance_ssid_record($form,&$form_state){
+
+
+  global $user;
+  $role = end($user->roles);
+  $user_info = user_load($user->uid);
+
+  //Add Code for agency role
+global $user;
+$aa = user_load($user->uid);
+$usermail = $user->mail;
+$querynode = db_select('node', 'n');
+              $querynode->fields('n');
+              $querynode->condition('type','agency','=');
+  $resultn = $querynode->execute();
+  while ($datanode = $resultn->fetchAssoc()) {
+//echo $datanode['nid'];
+
+ $node =  node_load($datanode['nid']);
+   $emailvalue = field_get_items('node', $node, 'field_email_id');
+   foreach ($emailvalue as $key => $email) {
+
+  $agency_detail = array();
+if($email['email'] == $usermail){
+ $agency_detail = array( 'agency_id' =>$datanode['nid'],
+                        'agency_mail' =>$email['email'],
+  ); 
+   }
+  
+} 
+  }
+ $query = db_select('agency_record', 'ag_r');
+              $query->fields('ag_r');
+              $query->condition('ag_r.agency',$agency_detail['agency_id'],'=');
+  $result = $query->execute()->fetchAssoc();
+
+//End code for agency role
+  
+    if(($role == 'MOLE') ||($user->uid == 1)){
+            $state_list = _get_location('state');
+          }
+          if(($role == 'State') || ($role == 'District') || ($role == 'Tehsil') || ($role == 'Agent')){
+            $state_value = $user_info->field_state['und'][0]['value'];
+            $state_list_data = _get_location('state');
+            $state_list[$state_value] = $state_list_data[$state_value];
+          }
+          if(($role == 'Agency')){
+            $state_value = $result['state'];
+            $state_list_data = _get_location('state');
+            $state_list[$state_value] = $state_list_data[$state_value];
+  }
+   $session_state = ($_SESSION['state_value_card_issurance'] !='') ? $_SESSION['state_value_card_issurance']: key($state_list);
+
+    
+  $state_selected = isset($form_state['values']['state']) ? $form_state['values']['state'] : $session_state;
+    
+    $form['state'] = array(
+        '#title' => 'State',
+        '#type' => 'select',
+        '#options' => $state_list,
+        '#default_value' => $state_selected,
+        '#required' => TRUE,
+        '#ajax' => array(
+            'callback' => 'ajax_callback_state',
+            'wrapper' => 'wrapper_state',
+            
+        ),
+        
+    );
+
+     if(($role == 'District') || ($role == 'Tehsil') || ($role == 'Agent')){
+          $district_value = $user_info->field_district['und'][0]['value'];
+          $district_list_data = _get_location('district',$state_selected);
+          $district_list[$district_value] = $district_list_data[$district_value];
+        }
+
+    if(($role == 'State')||($role == 'MOLE') ||(($user->uid == 1))){
+        $district_list = _get_location('district',$state_selected);
+    }
+    if(($role == 'Agency') ){
+          $district_value = $result['district'];
+          $district_list_data = _get_location('district',$state_selected);
+          $district_list[$district_value] = $district_list_data[$district_value];
+    }
+     $session_district = ($_SESSION['district_value_card_issurance'] !='') ? $_SESSION['district_value_card_issurance']: key($district_list);
+
+
+  //  $district_list = _get_location('district',$state_selected);
+    $district_selected = isset($form_state['values']['district']) ? $form_state['values']['district'] : $session_district;
+    $form['district'] = array(
+        '#title' => 'District',
+        '#type' => 'select',
+        '#options' => $district_list,
+        '#default_value' => $district_selected,
+        //'#required' => TRUE,
+        '#prefix' => '<div id="wrapper_state">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_district',
+            'wrapper' => 'wrapper_tehsil',
+            
+        ),
+        
+    );
+
+    if(($role == 'Tehsil') || ($role == 'Agent')){
+         $tehsil_value = $user_info->field_tehsil['und'][0]['value'];
+          $tahsil_list_data = _get_location('tehsil',$state_selected,$district_selected);
+          $tehsil_list[$tehsil_value] = $tahsil_list_data[$tehsil_value];
+        }
+
+    if(($role == 'State') || ($role == 'District') || ($role == 'MOLE')||($user->uid == 1)){
+    $tehsil_list = _get_location('tehsil',$state_selected,$district_selected);
+    }
+    if( ($role == 'Agency')){
+    
+    $tehsil_value = $result['tehsil'];
+    $tehsil_list_data = _get_location('tehsil',$state_selected,$district_selected);
+    $tehsil_list[$tehsil_value] = $tehsil_list_data[$tehsil_value];
+    $tehsil_selected = isset($form_state['values']['tehsil']) ? $form_state['values']['tehsil'] : key($tehsil_list); 
+
+    }
+
+     $session_tehsil = ($_SESSION['tehsil_value_card_issurance'] !='') ? $_SESSION['tehsil_value_card_issurance']: key($tehsil_list);
+
+    
+  //  $tehsil_list = _get_location('tehsil',$state_selected,$district_selected);
+    $tehsil_selected = isset($form_state['values']['tehsil']) ? $form_state['values']['tehsil'] : $session_tehsil; 
+    $form['tehsil'] = array(
+        '#title' => 'Tehsil',
+        '#type' => 'select',
+        '#options' => $tehsil_list,
+        '#default_value' => $tehsil_selected,
+        // '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_tehsil">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_tehsil',
+            'wrapper' => 'wrapper_village',
+            
+        )
+    );
+    
+
+        if(($role == 'Agent')){
+      
+         $village_value = $user_info->field_village['und'][0]['value'];
+          $village_list_data = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+          $village_list[$village_value] = $village_list_data[$village_value];
+        }
+
+    if(($role == 'Tehsil') || ($role == 'State') || ($role == 'District') || ($role == 'MOLE')||($user->uid == 1)){
+    $village_list = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+    }
+     if( ($role == 'Agency')){
+            $village_list_data = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+            $vill_value = explode(',', $result['village']);
+                 
+            $village_list = array();
+            foreach ($vill_value as $key => $village_data) {
+                    $village_list[$village_data] = $village_list_data[$village_data];
+            }
+            $vill_session_value = isset($_SESSION['village_value_card_issurance']) ? $_SESSION['village_value_card_issurance'] : key($village_list);
+            $village_selected = isset($form_state['values']['village']) ? $form_state['values']['village'] : $vill_session_value;
+
+    }
+     $session_village = ($_SESSION['village_value_card_issurance'] !='') ? $_SESSION['village_value_card_issurance']: key($village_list);
+
+    //$village_list = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+    $village_selected = isset($form_state['values']['village']) ? $form_state['values']['village'] : $session_village;
+    $form['village'] = array(
+        '#title' => 'Village/Town',
+        '#type' => 'select',
+        '#options' => $village_list,
+        '#default_value' => $village_selected,
+      //  '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_village">',
+        '#suffix' => '</div>',
+    );
+     
+$form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+
+ $form['reset'] = array(
+    '#type' => 'submit',
+    '#submit' => array('search_reset_card_issurance'),
+    '#value' => t('Reset'),
+  );
+
+
+if($session_district == '0'){
+  $district_val ='';
+} else{
+    $district_val =$session_district;
+
+}
+
+if($session_tehsil == '0'){
+  print "adasdasdsd";
+  $tehsil_val ='';
+}
+else{
+    $tehsil_val =$session_tehsil;
+
+}
+
+if($session_village == '0'){
+  $village_val ='';
+}
+else{
+    $village_val =$session_village;
+
+}
+//die('assdj');
+if(!empty($session_state)){
+
+
+  $house_hold_id = $session_state.''.$session_district.''.$tehsil_val.''.$village_val;
+ $header = array('S.N','photograph','AHL TIN','House-Hold ID', 'Member S.No','Name', 'Name(Regional)','Fathers\'s Name','Mother\'s Name','Occupation','YoB (YYYY)/DoB (DD/MM/YYYY)','HoF','Gender','Relation With HOF','SSID');
+ 
+
+  $query = db_select("ssid_generated_data.uwssid", "n");
+  $query->fields('n');
+  //$query->condition('house_hold_id', '%'. db_like($house_hold_id) . '%', 'LIKE'); 
+  if((!empty($session_state)) && (!empty($session_district)) && (!empty($tehsil_val)) && (!empty($village_val))){
+     $query->condition('statecode', $session_state, '=');
+     $query->condition('districtcode', $session_district, '=');
+     $query->condition('tehsilcode', $tehsil_val, '=');
+     $query->condition('towncode', $village_val, '='); 
+
+   }
+   if((!empty($session_state)) && (!empty($session_district)) && (!empty($tehsil_val))){
+     $query->condition('statecode', $session_state, '=');
+     $query->condition('districtcode', $session_district, '=');
+     $query->condition('tehsilcode', $tehsil_val, '=');
+   }
+   if((!empty($session_state)) && (!empty($session_district))){
+     $query->condition('statecode', $session_state, '=');
+     $query->condition('districtcode', $session_district, '=');        
+   }
+   if((!empty($session_state))){
+     $query->condition('statecode', $session_state, '=');      
+   }
+
+   $query->condition('ssid', '', '!=');
+   $query->condition('card_issue', '1', '=');     
+  
+   //$query->where('substr(house_hold_id,1,11) = :hid',array(':hid' => $house_hold_id));
+  $query = $query->extend('TableSort')->extend('PagerDefault')->limit(20);
+  $result = $query->execute();
+  
+  $rows = array();
+  
+               $page =($_GET['page']*20);
+
+                $i = $page+1;
+                while($data = $result->fetchObject()){
+                  // echo "<pre>";
+                  // print_r($data);
+                 
+                 if(!empty($data->photograph)){
+
+                 // print $data->photograph;
+                  $phto = 'data:image/gif;base64,'.$data->photograph;
+                  $image = '<img src="'.$phto.'" style="width: 75px;">';
+                } else{
+                  $shrmeo = base_path() . path_to_theme().'/images/noimage.jpeg';
+                   $image = '<img src="'.$shrmeo.'" style="width: 75px;">';
+                }
+                
+              
+                
+                    $rows[$data->ahl_tin] = array(
+                    $i,
+                    $image,
+                    $data->ahl_tin,      
+                    $data->house_hold_id,
+                    $data->slnomember,
+                    $data->name,
+                    $data->name_sl,    
+                    $data->fathername,
+                    $data->mothername,
+                    $data->occupation,
+                    $data->yob,    
+                    get_hof($data->hof),
+                    get_gender($data->genderid),
+                    $data->relation,
+                    $data->ssid,
+                );
+                  $i++;
+              }
+
+
+      $form['table'] = array(
+            '#theme' => 'table',
+            '#header' => $header,
+            '#rows' => $rows,
+            '#empty' => t('Table has no row!'),
+            '#prefix' => "<div id='my_printable_div'>",
+            '#suffix' => "</div>",
+          );
+
+    $form['pager'] = array('#markup' => theme('pager'));
+}
+      return $form;
+
+
+
+
+
+}
+
+
+function card_issurance_ssid_record_submit($form,&$form_state){
+
+
+  if($form_state['values']['state'] != '0'){
+           $_SESSION['state_value_card_issurance'] =  $form_state['values']['state'];
+
+       }
+       if ($form_state['values']['district'] != '') {
+            $_SESSION['district_value_card_issurance'] =  $form_state['values']['district'];
+           
+       }
+       if ($form_state['values']['tehsil'] != '') {
+                    $_SESSION['tehsil_value_card_issurance'] =  $form_state['values']['tehsil'];
+
+       }
+       if ($form_state['values']['village'] != '') {
+
+                 $_SESSION['village_value_card_issurance'] =  $form_state['values']['village'];
+
+       }
+  
+}
+
+function search_reset_card_issurance(){
+   if($_SESSION['state_value_card_issurance'] != ''){
+          unset($_SESSION['state_value_card_issurance']);
+
+       }
+       if ($_SESSION['district_value_card_issurance'] != '') {
+            unset($_SESSION['district_value_card_issurance']);
+           
+       }
+       if ($_SESSION['tehsil_value_card_issurance'] != '') {
+                    unset($_SESSION['tehsil_value_card_issurance']);
+
+       }
+       if ($_SESSION['village_value_card_issurance'] != '') {
+
+                 unset($_SESSION['village_value_card_issurance']);
+
+       }
+
+}

@@ -1,0 +1,4 @@
+name = XML MIS or Batch,
+description = MIS reports of cards, and batch id for xml data,
+core = 7.x
+package = 'custom'

@@ -1,0 +1,367 @@
+<?php
+
+function dashboard_menu(){
+    $items['dashboard'] = array(
+        'title' => 'Dashboard',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('user_dashboard'),
+        'access arguments' => array('custom dashboard'),
+        'type' => MENU_NORMAL_ITEM,
+     );
+    return $items;
+}
+
+function dashboard_permission(){
+  return array(
+    'custom dashboard' => array(
+      'title' => t('Custom Dashboard'),
+    )
+  );
+}
+
+function user_dashboard($form,$form_state){
+
+
+  $options = array(
+  'target_id' => 'dash_tab',
+  'button_id' => 'my_print_button',
+  'value' => t('Print Record'),
+  'type' => 'link',
+  'custom_css' => path_to_theme().'/css/style.css',
+  );
+
+      $print = area_print_form($options);
+
+    
+    //$state_list = _get_location('state');
+    //$state_list = array('admin' => 'admin');
+        $form['dashboard-help'] = array(
+            '#type' => 'item',
+            //'#title' => 'fdgft',
+            '#markup' => 'State wise dashboard for display full details.',
+        );
+        $des_def_val = isset($_SESSION['das_session']) ? $_SESSION['das_session'] : '';
+        
+    $form['data_source'] = array(
+      '#type' => 'radios',
+      '#title' => t('Select Data Source'),
+       '#options' => array(
+         'secc_' => t('Socio-Economic Caste Census'),
+         'uw_' => t('Possible Unorganised Workers based on MoLE Criteria'),
+        ),
+       '#required' => TRUE,
+      '#default_value' =>$_SESSION['data_source'], 
+      '#prefix' => '<div id="wrapper_area_choice">',
+      '#suffix' => '</div>',
+
+      );
+
+      global $user;
+        $role = end($user->roles);
+        $user_info = user_load($user->uid);
+
+    if(($role == 'MOLE') ||($user->uid == 1)){
+            $state_list = _get_location('state');
+          }
+
+    if(($role == 'State') || ($role == 'District') || ($role == 'Tehsil')){
+            $state_value = $user_info->field_state['und'][0]['value'];
+            $state_list_data = _get_location('state');
+            $state_list[$state_value] = $state_list_data[$state_value];
+          }
+
+        $form['dashboard_state'] = array(
+               '#type' => 'select',
+               '#title' => 'State',
+               '#options' => $state_list,
+               '#default_value' => $des_def_val,
+               '#required' => TRUE,
+        ); 
+
+         if(($role == 'District')){
+
+          $district_value = $user_info->field_district['und'][0]['value'];
+          $district_list_data = _get_location('district',$state_value);
+          $district_list[$district_value] = $district_list_data[$district_value];
+
+     $session_district = ($_SESSION['district_value_de'] !='') ? $_SESSION['district_value_de']: key($district_list);
+
+
+  //  $district_list = _get_location('district',$state_selected);
+    $district_selected = isset($form_state['values']['district_de']) ? $form_state['values']['district_de'] : $session_district;
+    $form['district_dashborad'] = array(
+        '#title' => 'District',
+        '#type' => 'select',
+        '#options' => $district_list,
+        '#default_value' => $district_selected,
+        //'#required' => TRUE,
+        '#prefix' => '<div id="wrapper_state_de">',
+        '#suffix' => '</div>',
+               
+    );
+
+        }
+
+        $form['submit'] = array(
+            '#type' => 'submit',
+            '#value' => t('Submit'),
+        );
+
+        
+        if(!empty($_SESSION['das_session']) || ($_SESSION['data_source'])){
+    $form['print']  = array(
+      '#type' => 'markup',
+      '#markup' =>t($print),      
+       );
+}
+ 
+        
+      
+
+if((!empty($_SESSION['das_session'])) && ($_SESSION['data_source'] == 'secc_')){
+      $form['tab_title'] = array(
+        '#markup' => '<br><br><br><h3 style="background: rgb(235, 235, 235) none repeat scroll 0% 0%; padding: 7px;">Monthly income of highest earning less than 10,000.</h3><br>',
+        );
+    $header = 	array('S.No','District', 
+        array('data' => '<div class ="house">Household</div> <br><span>Rural</span> <p>Urban</p>','colspan' => 2),
+        array('data' => '<div class ="house">Members</div> <br><span>Rural</span> <p>Urban</p>','colspan' => 2),
+        array('data' => '<div class ="house">Members (18 and Above)</div><br><span>Rural</span> <p>Urban</p>','colspan' => 2), 'Income < 10000',
+        );
+    
+    $sess_val = $_SESSION['das_session'];
+    
+     if(($role == 'State') || ($role == 'MOLE')){
+
+    $re_qry = db_select('activity.state_report','sr')
+              ->fields('sr')
+              ->condition('state_code',$sess_val)
+              ->orderBy('sr.b_district')
+              ->execute();
+
+            }
+             if( ($role == 'District')){
+
+                        
+
+    $re_qry = db_select('activity.state_report','sr')
+              ->fields('sr')
+              ->condition('state_code',$sess_val)
+               ->condition('sr.a_districtcode',$district_code)
+              ->orderBy('sr.b_district')
+              ->execute();
+
+            }
+    
+                $i = 1;
+                while($data = $re_qry->fetchObject()){
+                	
+                      $rows[] = array(
+                              '<b>'.$i.'</b>',    
+                              isset($data->b_district) ? $data->b_district : '<strong>Total</strong></div>',
+                               isset($data->b_district) ? '<div class = "numeric_align">' . number_format($data->c_rural) : '<div class = "numeric_align"><b>'.number_format($data->c_rural).'</b></div>',
+                              isset($data->b_district) ? '<div class = "numeric_align">' . number_format($data->d_urban): '<div class = "numeric_align"><b>'.number_format($data->d_urban).'</b></div>',
+                              isset($data->b_district) ? '<div class = "numeric_align">' . number_format($data->e_rural) : '<div class = "numeric_align"><b>'.number_format($data->e_rural).'</b></div>',
+                              isset($data->b_district) ? '<div class = "numeric_align">' . number_format($data->f_urban) : '<div class = "numeric_align"><b>'.number_format($data->f_urban).'</b></div>',
+                              isset($data->b_district) ? '<div class = "numeric_align">' . number_format($data->g_rural) : '<div class = "numeric_align"><b>'.number_format($data->g_rural).'</b></div>',
+                              isset($data->b_district) ? '<div class = "numeric_align">' . number_format($data->h_urban) : '<div class = "numeric_align"><b>'.number_format($data->h_urban).'</b></div>',
+                              isset($data->b_district) ? '<div class = "numeric_align">' . number_format($data->i_rural) : '<div class = "numeric_align"><b>'.number_format($data->i_rural).'</b></div>',
+                   
+
+                          );
+                      $i++;
+                }
+                //die();
+    $form['table'] = array(
+     '#theme' => 'table',
+     '#header' => $header,
+     '#rows' => $rows,
+     '#prefix' => '<div id="dash_tab">',
+     '#suffix' => '</div>',   
+     '#empty' => t('No Data Found!')
+);
+    
+    
+    }
+    else if($_SESSION['data_source'] == 'uw_'){
+    	   $form['tab_title'] = array(
+                        '#markup' => '<br><br><br><h3 style="background: rgb(235, 235, 235) none repeat scroll 0% 0%; padding: 7px;">SSID status of state name on  : '.date('d/m/Y').'</h3><br>',
+        );
+
+ $header = array('S.N','District', 
+        array('data' => '<div class ="house">Household </div><br><span>Rural</span> <p>Urban</p>','colspan' => 2),
+         array('data' => '<div class ="house">Members</div> <br><span>Rural</span> <p>Urban</p>','colspan' => 2),
+          'Duplicate/Failed Registration', 'SSID Generated', 'No. of Card Personlised', ' No of Card Distributed'
+        );
+    
+    $sess_val = $_SESSION['das_session'];
+    
+ 
+//    $re_qry = db_select('activity.state_report','sr')
+//              ->fields('sr')
+//              ->condition('state_code',$sess_val)
+//              ->orderBy('sr.b_district')
+//              ->execute();
+              
+    $re_qry = db_select('location.district','sr')
+              ->fields('sr')
+              ->condition('sr.state_code',$sess_val)
+              ->orderBy('sr.name')
+              ->execute();
+    
+                $i = 1;
+                while($data = $re_qry->fetchObject()){
+                  
+                  $district_code_length = strlen($data->a_districtcode);
+                  if($district_code_length =='1'){
+                    $district_code = '0'.$data->a_districtcode;
+                  }else{
+                    $district_code = $data->a_districtcode;                   
+
+                  }
+                  if(empty($district_value)){
+                  if($data->a_districtcode != 'TOTAL'){
+
+                      $rows[] = array(
+                              '<b>'.$i.'</b>',    
+                              $data->name,
+                              '<div class = "numeric_align">'. number_format(houese_hold_data($sess_val, $data->code , 'rural')) .'</div>',
+                              '<div class = "numeric_align">'. number_format(houese_hold_data($sess_val, $data->code , 'urban')) .'</div>',
+                              '<div class = "numeric_align">'. number_format(member_rural_urban($sess_val, $data->code , 'rural')) .'</div>',
+                              '<div class = "numeric_align">'. number_format(member_rural_urban($sess_val, $data->code , 'urban')) .'</div>',
+                              '<div class = "numeric_align">'. number_format(duplicate_registration($sess_val,$data->code)).'</div>',
+                              '<div class = "numeric_align">'. number_format(count_generated_ssid($sess_val,$data->code)) .'</div>',
+                              '<div class = "numeric_align">'. number_format(no_of_card_personalise($sess_val,$data->code)) .'</div>',
+                              '<div class = "numeric_align">'. number_format(no_of_card_distributed($sess_val,$data->code)) .'</div>',
+                          );
+                    }
+                  }else{
+                    if($district_value == $district_code){
+                     if($data->a_districtcode != 'TOTAL'){
+
+                      $rows[] = array(
+                              '<b>'.$i.'</b>',    
+                              $data->b_district,
+                              '<div class = "numeric_align">'. number_format(houese_hold_data($sess_val, $district_code , 'rural')) .'</div>',
+                              '<div class = "numeric_align">'. number_format(houese_hold_data($sess_val, $district_code , 'urban')) .'</div>',
+                              '<div class = "numeric_align">'. number_format(member_rural_urban($sess_val, $district_code , 'rural')) .'</div>',
+                              '<div class = "numeric_align">'. number_format(member_rural_urban($sess_val, $district_code , 'urban')) .'</div>',
+                              '<div class = "numeric_align">'. number_format(duplicate_registration($sess_val,$district_code)).'</div>',
+                             '<div class = "numeric_align">'. number_format(count_generated_ssid($sess_val,$district_code)) .'</div>',
+                              '<div class = "numeric_align">'. number_format(no_of_card_personalise($sess_val,$district_code)) .'</div>',
+                              '<div class = "numeric_align">'. number_format(no_of_card_distributed($sess_val,$district_code)) .'</div>',
+                          );
+                    }
+                  }
+                  }
+                      $i++;
+                }
+               // / die();
+        print_r($rows);        
+                
+    $form['table'] = array(
+     '#theme' => 'table',
+     '#header' => $header,
+     '#rows' => $rows,
+     '#prefix' => '<div id="dash_tab">',
+     '#suffix' => '</div>',
+     //'#caption' => '2341',   
+     '#empty' => t('No Data Found!')
+);
+    
+
+    }
+   return $form;
+
+}
+
+
+function user_dashboard_submit($form, $form_state){
+  
+    
+    $_SESSION['das_session'] = $form_state['values']['dashboard_state'];
+    $_SESSION['data_source'] = $form_state['values']['data_source'];
+
+    
+}
+
+
+function count_generated_ssid($state_id , $district_id){
+  
+  $ahl_tin = $state_id.$district_id;
+  $tbl_nme = 'uwssid';
+  
+   $result = db_select('ssid_generated_data.'.$tbl_nme, 'ssid')
+            ->fields('ssid')
+            //->condition('ssid.ahl_tin','%' . db_like($ahl_tin) . '%', 'LIKE')
+            ->condition('ssid.statecode', $state_id, '=')
+            ->condition('ssid.districtcode', $district_id, '=')
+            ->condition('ssid.ssid','', '!=')
+            ->execute();
+   
+     return $num_of_results = $result->rowCount();
+
+}
+
+function duplicate_registration($state_id , $district_id){
+   $tbl_chk = 'duplicate_recods.individual_'.$state_id;
+   if(db_table_exists($chk_tbl)){
+            $result = db_select('duplicate_recods.individual_'.$state_id, 'dr')
+                     ->fields('dr')
+                     //->condition('dr.ahl_tin','%' . db_like($ahl_tin) . '%', 'LIKE')
+                     ->condition('dr.statecode', $state_id, '=')
+                     ->condition('dr.districtcode', $district_id, '=')
+                     ->execute();
+              return $num_of_results = $result->rowCount();
+   }else{
+       return $num_of_results = 0;
+     }
+}
+
+function houese_hold_data($state_id , $district_id , $ru){
+  
+  $chk_tbl = 'registered_'.$ru.'.individual_'.$state_id;
+  
+  if(db_table_exists($chk_tbl)){
+        $result = db_select('registered_'.$ru.'.individual_'.$state_id, 'dr')
+                  ->groupBy('dr.house_hold_id')
+                  ->fields('dr', array('house_hold_id'))
+                  ->condition('dr.statecode', $state_id, '=')
+                  ->condition('dr.districtcode', $district_id, '=')
+                  //->condition('dr.ahl_tin','%' . db_like($ahl_tin) . '%', 'LIKE')
+        ->execute();
+  return $num_of_results = $result->rowCount();
+  }else{
+      return $num_of_results = 0;
+  }
+    
+}
+
+function member_rural_urban($state_id , $district_id , $ru){
+   $chk_tbl = 'registered_'.$ru.'.individual_'.$state_id;
+   if(db_table_exists($chk_tbl)){
+        $result = db_select('registered_'.$ru.'.individual_'.$state_id, 'dr')
+                 ->fields('dr', array('house_hold_id'))
+                 //->condition('dr.ahl_tin','%' . db_like($ahl_tin) . '%', 'LIKE')
+                 ->condition('dr.statecode', $state_id, '=')
+                 ->condition('dr.districtcode', $district_id, '=')
+                 ->execute();
+          return $num_of_results = $result->rowCount();
+   }else{
+      return $num_of_results = 0;
+  }
+}
+
+function no_of_card_personalise($state_id , $district_id){
+  
+}
+
+
+function no_of_card_distributed($state_id , $district_id){
+  
+}
+
+
+function total_result($schema){
+
+
+}

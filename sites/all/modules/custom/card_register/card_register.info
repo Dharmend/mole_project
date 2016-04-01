@@ -1,0 +1,7 @@
+name = Card Register
+description = Card Registeration for IA.
+core = 7.x
+version = "7.x-dev"
+package = 'custom'
+configure = admin/config/
+

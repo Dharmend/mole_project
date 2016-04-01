@@ -1,0 +1,39 @@
+<?php
+/**
+* @file
+* Install, update, and uninstall functions for the REST Server IP Filtering module.
+*/
+
+
+/**
+  * Implements hook_install().
+  */
+function rest_server_ip_filtering_install() {
+  /**
+   * Can be 0 => 'Off', 1 => 'Allow' or 2 => 'Block'. See
+   * rest_server_ip_filtering.module for named constant definitions.
+   * 
+   * @name ip_filter_mode
+   * 
+   * @see rest_server_ip_filtering.module
+   */
+  variable_set('ip_filter_mode', 0);
+
+  /**
+   * An array of IP addresses for allowing or blocking.
+   * 
+   * @name ip_filter_list
+   * 
+   * @see rest_server_ip_filtering.module
+   */
+  variable_set('ip_filter_list', '');
+}
+
+
+/**
+  * Implements hook_uninstall().
+  */
+function rest_server_ip_filtering_uninstall() {
+  variable_del('ip_filter_mode');
+  variable_del('ip_filter_list');
+}

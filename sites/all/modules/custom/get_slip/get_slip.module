@@ -1,0 +1,359 @@
+<?php
+
+function get_slip_permission() {
+  return array(
+    'access get-slip content' => array(
+      'title' => t('Access content for the slip module'),
+    )
+  );
+}
+function get_slip_menu(){
+    $items['get-slip'] = array(
+        'title' => 'Slip of Person',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('get_slips'),
+         'access arguments' => array('access get-slip content'),
+
+       // 'access callback' => TRUE,
+     );
+    
+    return $items;
+}
+
+function get_slips($form, &$form_state){
+
+  $options = array(
+  'target_id' => 'my_printable_div',
+  'button_id' => 'my_print_button',
+  'value' => t('Print Record'),
+  'type' => 'link',
+  'custom_css' => path_to_theme().'/css/style.css',
+  );
+
+ //area_print_form($options);
+
+  //print "aaaaaaa";
+      $print = area_print_form($options);
+
+  global $user;
+    $role = end($user->roles);
+  $user_info = user_load($user->uid);
+
+if($_SESSION['rural_urban_slip_value'] !=''){
+  $session_rural = $_SESSION['rural_urban_slip_value'];
+}
+if($_SESSION['secc_uw_slip'] !=''){
+  $session_data_source = $_SESSION['secc_uw_slip'];
+}
+   
+   $state_id =$user_info->field_state['und']['0']['value'];
+ $district_id =$user_info->field_district['und']['0']['value'];
+ $tehsil_id =$user_info->field_tehsil['und']['0']['value'];
+ $village_id = $user_info->field_village['und']['0']['value'] ;
+
+ $form['secc_uw_slip'] = array(
+        '#type' => 'radios',
+        '#title' => t('Select Data Source'),
+        '#options' => array(
+        'secc_' => t('Socio-Economic Caste Census'),
+        //'uw_' => t('Possible Unorganised Workers based on MoLE Criteria'),
+        ),
+        '#required' => TRUE,
+        '#default_value' => $session_data_source, 
+        '#prefix' => '<div id="wrapper_area_sec_uowd">',
+        '#suffix' => '</div>',
+      );
+
+    
+    $form['rural_urban_slip'] = array(
+      '#type' => 'radios',
+      '#title' => t('Select Area'),
+       '#options' => array(
+         'rural' => t('Rural'),
+         'urban' => t('Urban'),
+        ),
+       '#required' => TRUE,
+      '#default_value' => $session_rural, 
+      
+      );
+
+   //  $aa = user_load($user->uid);
+ $usermail = $user->mail;
+
+$querynode = db_select('node', 'n');
+              $querynode->fields('n');
+              $querynode->condition('type','agency','=');
+  $resultn = $querynode->execute();
+  while ($datanode = $resultn->fetchAssoc()) {
+
+
+ $node =  node_load($datanode['nid']);
+   $emailvalue = field_get_items('node', $node, 'field_email_id');
+   foreach ($emailvalue as $key => $email) {
+
+    $agency_detail = array();
+if($email['email'] == $usermail){
+ $agency_detail = array( 'agency_id' =>$datanode['nid'],
+                        'agency_mail' =>$email['email'],
+  ); 
+   }
+  
+}
+  }
+
+     $query = db_select('agency_record', 'ag_r');
+              $query->fields('ag_r');
+              $query->condition('ag_r.agency',$agency_detail['agency_id'],'=');
+  $result = $query->execute()->fetchAssoc();
+
+
+     // if(($role == 'Agent')){
+      
+     //     $village_value = $user_info->field_village['und'][0]['value'];
+     //      $village_list_data = _get_location('village',$state_id,$district_id,$tehsil_id);
+     //      $village_list[$village_value] = $village_list_data[$village_value];
+     //    }
+
+
+         if( ($role == 'Agency')){
+              $village_list_data = _get_location('village',$result['state'],$result['district'],$result['tehsil']);
+                  $vill_value = explode(',', $result['village']);
+                 
+                    $village_list = array();
+                  foreach ($vill_value as $key => $village_data) {
+                    $village_list[$village_data] = $village_list_data[$village_data];
+                  }
+                  // echo "<pre>";
+                  // print_r($village_list);
+                   //$vill_session_value = ($_SESSION['village_slip'] !='') ? $_SESSION['village_slip'] : key($village_list);
+    //$village_selected = isset($form_state['values']['village']) ? $form_state['values']['village'] : $vill_session_value;
+
+}
+
+    if(($role == 'Tehsil')){
+    $village_list = _get_location('village',$state_id,$district_id,$tehsil_id);
+    }
+     $session_village = ($_SESSION['village_slip'] !='') ? $_SESSION['village_slip']: key($village_list);
+
+    //$village_list = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+    $village_selected = isset($form_state['values']['village']) ? $form_state['values']['village'] : $session_village;
+    $form['village_slip'] = array(
+        '#title' => 'Village/Town',
+        '#type' => 'select',
+        '#options' => $village_list,
+        '#default_value' => $village_selected,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_village">',
+        '#suffix' => '</div>',
+//        '#ajax' => array(
+//            'callback' => 'ajax_callback_state',
+//            'wrapper' = > 'wrapper_state',
+//            
+//        )
+    );
+
+    
+ $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+
+ $form['reset'] = array(
+    '#type' => 'submit',
+    '#submit' => array('slip_reset'),
+    '#value' => t('Reset'),
+  );
+
+if(!empty($_SESSION['secc_uw_slip']) || ($_SESSION['rural_urban_slip_value'])){
+ $form['print']  = array(
+      '#type' => 'markup',
+      '#markup' =>t($print),      
+       );
+}
+ 
+ $fst = $_SESSION['secc_uw_slip'];
+ $sec = $_SESSION['rural_urban_slip_value'];
+ $tbl = $fst.''.$sec;
+ 
+          if( ($role == 'Agency')){
+
+  $state_id =$result['state'];
+ $district_id =$result['district'];
+ $tehsil_id = $result['tehsil'];
+
+}else{
+ $state_id =$user_info->field_state['und']['0']['value'];
+ $district_id =$user_info->field_district['und']['0']['value'];
+ $tehsil_id =$user_info->field_tehsil['und']['0']['value'];
+}
+ $village_id = $user_info->field_village['und']['0']['value'] ;
+
+ if(!empty($tbl)){
+
+    $house_hold_id = $state_id.''.$district_id.''.$tehsil_id.''.$session_village;
+    
+ 
+  $query = db_select($tbl.".individual_".$state_id, "n");
+  if($fst == 'secc_'){
+$query->fields('n',array('name','ahl_tin','slnomember','fathername','name_sl','mothername','occupation','yob','hof','genderid','relation','house_hold_id','uw_record','dob'));
+  }else{
+  $query->fields('n',array('name','ahl_tin','slnomember','fathername','name_sl','mothername','occupation','yob','hof','genderid','relation','house_hold_id','dob'));  
+  }
+  
+  
+  $query->condition('n.house_hold_id',db_like($house_hold_id) . '%', 'LIKE');
+  
+  //$query->orderBy('n.house_hold_id','ASC');
+ // $query->orderBy('n.slnomember','ASC');
+  
+  $query = $query->extend('TableSort')->extend('PagerDefault')->limit(20);
+  $result = $query->execute();
+
+ $_SESSION['village_slip'];
+   $village_info = _get_location('village',$state_id,$district_id,$tehsil_id);
+   $vill_name = $village_info[$_SESSION['village_slip']];
+
+     $tehsil_info = _get_location('tehsil',$state_id,$district_id);
+    $tehsil_name = $tehsil_info[$tehsil_id];
+
+     $district_info = _get_location('district',$state_id);
+    $district_name = $district_info[$district_id];
+
+     $state_info = _get_location('state');
+      $state_name = $state_info[$state_id];
+
+  $rows = array();
+  $page =($_GET['page']*20);
+
+           
+
+  
+                $i = $page+1;
+
+                while($data = $result->fetchObject()){
+                  // echo "<pre>";
+                  // print_r($data);
+                  // die('ss');
+                
+                  if($data->uw_record == 'm'){
+                    $identified_by = "Min. of Labour & Emp.";
+                  }else if($data->uw_record == 'u'){
+                    $identified_by = "State Govt.";
+                  }
+                    if($data->genderid == 1){
+                      $gendername = 'Male';
+                    } else if($data->genderid == 2){
+                       $gendername = 'Female';
+                    }
+
+                   $output = str_split($data->ahl_tin, 5);
+                   $tin = $output[0].' '.$output[1].' '.$output[2].' '.$output[3].' '.$output[4].' <b>'.$output[5].'</b>';
+            
+
+                     $html =   "<table cellpadding=0>
+                       
+                     <tr>
+                        <td style='width: 80px;'><b>AHL TIN No</b></td>
+                        <td>".$tin."</td>
+                        <td style='border-left: medium none ! important; border-top: medium none ! important; border-bottom: medium none ! important;'><b>AHL Tin No.: </b>".$tin."</td>
+
+                        </tr>
+                        <tr>
+                        <td><b>House hold Id/(Member sl. No.)</b></td>
+                        <td>".$data->house_hold_id." / (".$data->slnomember.")</td>
+                        <td style='border-left: medium none ! important; border-top: medium none ! important; border-bottom: medium none ! important;'>
+                        <b>Name/Gender/DOB/YOB:  </b>".$data->name."/".$gendername."/ ".date_format(date_create($data->dob),'d-m-Y')."/".$data->yob."<br>
+                        <b>State: </b>".$state_name."<br>
+                            <b>District: </b>".$district_name."
+                        </td>
+                        </tr>
+                        
+                        <tr>
+                        <td><b>Name/Gender/DOB/YOB<b></td>
+                        <td>".$data->name."/".$gendername."/ ".date_format(date_create($data->dob),'d-m-Y')."/".$data->yob."</td>
+                        <td style='border-left: medium none ! important; border-top: medium none ! important; border-bottom: medium none ! important;'> <b>Tehsil: </b>".$tehsil_name."<br>
+                            <b>Village: </b>".$vill_name."
+                        </td>
+                        </tr>
+                        <tr>
+                        <td><b>Father Name</b></td>
+                        <td>".$data->fathername."</td>
+                        
+                        </tr>
+                        <tr>
+                        <td><b>Mother name</b></td>
+                        <td>".$data->mothername."</td>
+                        <td style='border-left: medium none ! important; border-top: medium none ! important; border-bottom: medium none ! important;'></td>
+                        </tr>
+                       
+           <tr><td  colspan='3'>(I). I certify that I am an Unorganised Worker  <input type='checkbox' name='' value=''><br>
+           (II). I authorize Govt. to use my data for verification purpose  <input type='checkbox' name='' value=''><br> </td> 
+                                  </tr>
+
+
+
+                        </table></div>";
+                  // Fill the table rows
+                    $rows[$data->ahl_tin] = array(
+                    $i,                  
+                    $html,
+                );
+                  $i++;
+              }
+
+               /*End code*/
+
+               
+               $form['table'] = array(
+                            '#theme' => 'table',
+                            '#header' => $header,
+                            '#rows' => $rows,
+                            '#empty' => t('Table has no row!'),
+                            '#prefix' => "<div id='my_printable_div'>",
+                            '#suffix' => "</div>",
+                          );
+
+               
+ 
+$form['pager'] = array('#markup' => theme('pager'));
+
+}  
+    return $form;
+    
+}
+
+
+function get_slips_submit($form,$form_state){
+
+ if ($form_state['values']['secc_uw_slip'] != '') {
+
+                 $_SESSION['secc_uw_slip'] =  $form_state['values']['secc_uw_slip'];
+
+       }
+
+        if ($form_state['values']['rural_urban_slip'] != '') {
+
+                 $_SESSION['rural_urban_slip_value'] =  $form_state['values']['rural_urban_slip'];
+
+       }
+
+        if ($form_state['values']['village_slip'] != '') {
+
+                 $_SESSION['village_slip'] =  $form_state['values']['village_slip'];
+
+       }
+       
+       
+}
+   
+function slip_reset(){
+
+        if($_SESSION['secc_uw_slip'] !=''){
+              unset($_SESSION['secc_uw_slip']);
+            }
+            if($_SESSION['rural_urban_slip_value'] !=''){
+              unset($_SESSION['rural_urban_slip_value']);
+            }
+
+            
+}

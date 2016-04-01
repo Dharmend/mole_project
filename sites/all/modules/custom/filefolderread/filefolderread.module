@@ -1,0 +1,184 @@
+<?php
+ ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+function filefolderread_cronapi($op, $job = NULL) {
+
+  $items['filefolderread_file_cron'] = array(
+    'description' => 'upload file into table',
+    'rule' => '*/15 * * * *',   // Every 2 hours
+    
+  );
+
+  return $items;
+}
+
+
+function filefolderread_menu(){
+
+    $items['file-read'] = array(
+       'title' => 'Read File from folder',
+      //  'access arguments' => array('import card creation data'),
+        'page callback' => 'file_folder_callback',
+        'type' => MENU_NORMAL_ITEM,
+        'access callback' => TRUE,
+      );
+
+    return $items;
+
+}
+
+function file_folder_callback($form,&$form_state){
+ $aa = DRUPAL_ROOT;
+$path =  $aa.'/dataupload';
+ $files = glob($path."/*.csv*");
+
+     foreach($files as $file) {
+      
+        if (($handle = fopen($file, "r")) !== FALSE) {
+             $filename =  basename($file);
+             $state_id = substr($filename,0,2);           
+             $data_select_area =  substr($filename,11,5);
+
+            while (($line = fgetcsv($handle, 4096, ",")) !== FALSE) {
+             
+              //Decryt key
+                $key = 'lkirwf897+22#bbtrm8814z5qq=498j5'; // 32 * 8 = 256 bit key
+                $iv = '741952hheeyy66#cs!9hjv887mxx7@8y'; // 32 * 8 = 256 bit iv
+
+                 if(($line[0] != '') && ($line[0] != 'house_hold_id')){
+
+                  
+                    $up_sc = 'registered_'.$data_select_area;
+                    $secc_update = 'secc_'.$data_select_area;
+                     $ahl_tin = decryptRJ256($key,$iv,$line[15]);
+                
+                    
+                          $qs = trim(trim(decryptRJ256($key,$iv,$line[0])).trim(decryptRJ256($key,$iv,$line[4])).trim(decryptRJ256($key,$iv,$line[15])).trim(decryptRJ256($key,$iv,$line[3])).trim(decryptRJ256($key,$iv,$line[7])).trim(decryptRJ256($key,$iv,$line[10])).trim(decryptRJ256($key,$iv,$line[17])));
+                          $ekeyvs = trim(str_replace(' ', '', $qs));
+                           $check_mds = md5($ekeyvs);
+
+                          
+                             // if ($check_mds == decryptRJ256($key,$iv,$line[58])){
+                                  $ahlv = decryptRJ256($key,$iv,$line[15]);
+                                  $df_state_ssid = substr($ahlv ,2,2);
+                                  $df_district_ssid = substr($ahlv ,4,2);
+                                  $df_tehsil_ssid = substr($ahlv ,6,3);
+                                  $df_village_ssid = substr($ahlv ,9,4);            
+                                  
+                                  $data = array(
+                                    'house_hold_id' => ($line[0]=='') ? '' : trim(decryptRJ256($key,$iv,$line[0])),
+                                    'tin_npr' => ($line[1]=='') ? '' : trim(decryptRJ256($key,$iv,$line[1])),
+                                    //'r_u' => ($line[2]=='') ? '' : decryptRJ256($key,$iv,$line[2]),
+                                    'statecode' => trim($df_state_ssid),
+                                    'districtcode' => trim($df_district_ssid),
+                                    'tehsilcode' => trim($df_tehsil_ssid),
+                                    'towncode ' => trim($df_village_ssid),
+                                    'slnomember' => ($line[3]=='') ? '' : trim(decryptRJ256($key,$iv,$line[3])),
+                                    'name' => ($line[4]=='') ? '' : trim(decryptRJ256($key,$iv,$line[4])),
+                                    'name_sl' => ($line[5]=='') ? '' : trim($line[5]),
+                                    'relation' => ($line[6]=='') ? '' : trim(decryptRJ256($key,$iv,$line[6])),
+                                    'genderid' => ($line[7]=='') ? '' : trim(decryptRJ256($key,$iv,$line[7])),
+                                    'dob' => ($line[8]=='') ? '' : trim(decryptRJ256($key,$iv,$line[8])),
+                                    'mstatusid' => ($line[9]=='') ? '' : trim(decryptRJ256($key,$iv,$line[9])),
+                                    'fathername' => ($line[10]=='') ? '' : trim(decryptRJ256($key,$iv,$line[10])),
+                                    'mothername' => ($line[11]=='') ? '' : trim(decryptRJ256($key,$iv,$line[11])),
+                                    'occupation' => ($line[12]=='') ? '' : trim(decryptRJ256($key,$iv,$line[12])),
+                                    'educode' => ($line[13]=='') ? '' : trim(decryptRJ256($key,$iv,$line[13])),
+                                    'education_other' => ($line[14]=='') ? '' : trim(decryptRJ256($key,$iv,$line[14])),
+                                     'ahl_tin' => trim(decryptRJ256($key,$iv,$line[15])),
+                                    'age' => ($line[16]=='') ? '' : trim(decryptRJ256($key,$iv,$line[16])),
+                                    'yob' => ($line[17]=='') ? '' : trim(decryptRJ256($key,$iv,$line[17])),
+                                    'hof' => ($line[18]=='') ? '' : trim(decryptRJ256($key,$iv,$line[18])),
+                                    //extra fieds
+                                    'e_id' => ($line[19]=='') ? '' : trim(decryptRJ256($key,$iv,$line[19])),
+                                    'aadhaar' => ($line[20]=='') ? '' : trim(decryptRJ256($key,$iv,$line[20])),
+                                    'bank_account_no' => ($line[21]=='') ? '' : trim(decryptRJ256($key,$iv,$line[21])),
+                                    'bank_name' => ($line[22]=='') ? '' : trim(decryptRJ256($key,$iv,$line[22])),
+                                    'bank_branch' => ($line[23]=='') ? '' : trim(decryptRJ256($key,$iv,$line[23])),
+                                    'primary_occupation_code' => ($line[24]=='') ? '' : trim(decryptRJ256($key,$iv,$line[24])),
+                                    'secondary_occupation_code' => ($line[25]=='') ? '' : decryptRJ256($key,$iv,$line[25]),
+                                    'p_address1' => ($line[26]=='') ? '' : trim(decryptRJ256($key,$iv,$line[26])),
+                                    'p_address2' => ($line[27]=='') ? '' : trim(decryptRJ256($key,$iv,$line[27])),
+                                    'p_villagetown' => ($line[28]=='') ? '' : trim(decryptRJ256($key,$iv,$line[28])),
+                                    'p_district' => ($line[29]=='') ? '' : trim(decryptRJ256($key,$iv,$line[29])),
+                                    'p_state' => ($line[30]=='') ? '' : trim(decryptRJ256($key,$iv,$line[30])),
+                                    'p_pincode' => ($line[31]=='') ? '' : trim(decryptRJ256($key,$iv,$line[31])),
+                                    'c_address1' => ($line[32]=='') ? '' : trim(decryptRJ256($key,$iv,$line[32])),
+                                    'c_address2' => ($line[33]=='') ? '' : trim(decryptRJ256($key,$iv,$line[33])),
+                                    'c_villagetown' => ($line[34]=='') ? '' : trim(decryptRJ256($key,$iv,$line[34])),
+                                    'c_district' => ($line[35]=='') ? '' : trim(decryptRJ256($key,$iv,$line[35])),
+                                    'c_state' => ($line[36]=='') ? '' : trim(decryptRJ256($key,$iv,$line[36])),
+                                    'c_pincode' => ($line[37]=='') ? '' : trim(decryptRJ256($key,$iv,$line[37])),
+                                    'aadhaar_yesno' => ($line[38]=='') ? '' : trim(decryptRJ256($key,$iv,$line[38])),
+                                    'beggars_dw_sv_hbw_adwi_wages' => ($line[39]=='') ? '' : trim(decryptRJ256($key,$iv,$line[39])),
+                                    'construction_pl_sw_tw_sw' => ($line[40]=='') ? '' : trim(decryptRJ256($key,$iv,$line[40])),
+                                    'p_tehsil' => ($line[41]=='') ? '' : trim(decryptRJ256($key,$iv,$line[41])),
+                                    'c_tehsil' => ($line[42]=='') ? '' : trim(decryptRJ256($key,$iv,$line[42])),
+                                    'lessthan_10000' =>($line[43]=='') ? '' : trim(decryptRJ256($key,$iv,$line[43])),
+                                    'landlessthan_4acres' => ($line[44]=='') ? '' : trim(decryptRJ256($key,$iv,$line[44])),
+                                    'house_based' => ($line[45]=='') ? '' : trim(decryptRJ256($key,$iv,$line[45])),
+                                    'Photograph' => ($line[46]=='') ? '' : trim(decryptRJ256($key,$iv,$line[46])),
+                                    'income' => ($line[47]=='') ? '' : trim(decryptRJ256($key,$iv,$line[47])),
+                                    'mobile_num' => ($line[48]=='') ? '' : trim(decryptRJ256($key,$iv,$line[48])),
+                                    'ifsc_code' => ($line[49]=='') ? '' : trim(decryptRJ256($key,$iv,$line[49])),
+                                    'actual_self_decleration' => ($line[50]=='') ? '' : trim(decryptRJ256($key,$iv,$line[50])),
+                                    'mothername_uwssp' => ($line[51]=='') ? '' : trim(decryptRJ256($key,$iv,$line[51])),
+                                    'fathername_uwssp' => ($line[52]=='') ? '' : trim(decryptRJ256($key,$iv,$line[52])),
+                                     'agency_name' => ($line[53]=='') ? '' : trim(decryptRJ256($key,$iv,$line[53])),
+                                    'agency_id' =>($line[54]=='') ? '' : trim(decryptRJ256($key,$iv,$line[54])),
+                                    'election_id' => ($line[55]=='') ? '' : trim(decryptRJ256($key,$iv,$line[55])),
+                                    'card_issue' => ($line[56]=='') ? '' : trim(decryptRJ256($key,$iv,$line[56])),
+                                    'relation_uwssp' => ($line[57]=='') ? '' : trim(decryptRJ256($key,$iv,$line[57])),
+                                    'kit_id' => ($line[59]=='') ? '' : trim(decryptRJ256($key,$iv,$line[58])),
+                                    'batch_id' => ($line[60]=='') ? '' : trim(decryptRJ256($key,$iv,$line[59])),
+                                    'ssid' => '',
+                                    'uw_record' => '1',                                  
+                                  );
+
+
+                                  $result = db_insert($up_sc.'.individual_'.$state_id)
+                                                      ->fields($data)
+                                                      ->execute();                                    
+                          //     } 
+                          //     else{
+
+                          //      form_set_error('',t('File Data is Tampered'));
+                          //      $check_arr = form_set_error();
+                          //         if(!empty($check_arr)) {
+                          //           return $check_arr;
+                          //     }
+                          // }    
+
+
+                     }
+                }
+
+                 fclose($handle);
+ 
+         } 
+
+         $source = $path.'/'.$filename;
+         $destination =  $aa.'/movedfiledata/'.$filename;
+       
+           if (copy($source, $destination)) {
+              $delete[] = $source;
+          }
+
+    }
+     
+     foreach ( $delete as $file ) {
+      if (file_exists($file)) 
+      {
+        unlink($file);        
+
+    }
+
+  }
+}
+
+
+ function filefolderread_file_cron(){
+   file_folder_callback();  
+ }

@@ -1,0 +1,505 @@
+<?php
+
+function institution_schema() {
+  $schema = array();
+
+$schema['Institution'] = array(
+  'description' => 'TODO: please describe this table!',
+  'fields' => array(
+    'ins_id' => array(
+      'description' => 'TODO: please describe this field!',
+      'type' => 'serial',
+      'not null' => TRUE,
+    ),
+    'vid' => array(
+      'description' => 'active version id',
+      'type' => 'int',
+      'not null' => TRUE,
+      'default' => 0,
+    ),
+    'ins_type' => array(
+      'description' => 'Institute Type',
+      'type' => 'varchar',
+      'length' => '200',
+      'not null' => FALSE,
+    ),
+    'ins_code' => array(
+      'description' => 'Institute code',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'name' => array(
+      'description' => 'Institute name',
+      'type' => 'varchar',
+      'length' => '200',
+      'not null' => FALSE,
+    ),
+    'ins_local_lng' => array(
+      'description' => 'Institute/repository  local language',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'address' => array(
+      'description' => 'Institute address',
+      'type' => 'varchar',
+      'length' => '225',
+      'not null' => FALSE,
+    ),
+    'district' => array(
+      'description' => 'City of the Repository/Institute',
+      'type' => 'varchar',
+      'length' => '225',
+      'not null' => FALSE,
+    ),
+    'state' => array(
+      'description' => 'State of the Repository/Institute',
+      'type' => 'varchar',
+      'length' => '225',
+      'not null' => FALSE,
+    ),
+    'pin' => array(
+      'description' => ' Pin code of the Repository/Institute',
+      'type' => 'varchar',
+      'length' => '225',
+      'not null' => FALSE,
+    ),
+    'head_of_inst' => array(
+      'description' => 'Name of the Institution/Repository Head ',
+      'type' => 'varchar',
+      'length' => '225',
+      'not null' => FALSE,
+    ),
+    'phone' => array(
+      'description' => 'TODO: please describe this field!',
+      'type' => 'varchar',
+      'length' => '225',
+      'not null' => FALSE,
+    ),
+    'email' => array(
+      'description' => 'TODO: please describe this field!',
+      'type' => 'varchar',
+      'length' => '200',
+      'not null' => FALSE,
+    ),
+    'website' => array(
+      'description' => 'TODO: please describe this field!',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'total_manu' => array(
+      'description' => 'Total no of Manuscripts available with the Institute',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'paper_manu' => array(
+      'description' => 'Total no of Paper Manuscripts available with the Institute',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'palm_leaf_manu' => array(
+      'description' => 'No of Manuscripts available in Leaf material',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'other_material_manu' => array(
+      'description' => 'No of Manuscripts available in other Materials',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'illustrated_manu' => array(
+      'description' => 'No of Illustrated Manuscripts available ',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'catalog_published' => array(
+      'description' => 'No of Catalogues Published by Institute/Repository ',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'catalogue_type' => array(
+      'description' => 'Type of the Catalogue',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'manu_catalog_cat_wise_A' => array(
+      'description' => 'No of Manuscripts Catalogued- Category wise  A',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'manu_catalog_cat_wise_C' => array(
+      'description' => 'TODO: please describe this field!',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'manu_catalog_cat_wise_D' => array(
+      'description' => 'TODO: please describe this field!',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'manu_catalog_cat_wise_H' => array(
+      'description' => 'TODO: please describe this field!',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),  
+      
+    'manu_un_catalog_cat_wise' => array(
+      'description' => 'Total no of Manuscripts available in Un catalogued format category wise',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'catalogue_status' => array(
+      'description' => ' Status list of the Catalogue.',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'detail_rare_manu' => array(
+      'description' => 'Total no of Rare Manuscript available.',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'chronological_ranf_manu' => array(
+      'description' => 'Chronological range available for the Manuscripts.',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'state_preservation' => array(
+      'description' => 'State of the Manuscript Preservation.',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'type_of_inst' => array(
+      'description' => 'Type of the Institution',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'status_of_conversation' => array(
+      'description' => 'Showing the Status of the conversation',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'brief_history' => array(
+      'description' => 'TODO: please describe this field!',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'date_information_collection' => array(
+      'description' => 'Information collection date about the Repository/Institute.',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'mrc' => array(
+      'description' => ' Selection of MRC under which Repository/Institute will be registered.',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'uid' => array(
+      'description' => 'user who submit the entity',
+      'type' => 'int',
+      'not null' => FALSE,
+    ),
+    'created' => array(
+      'description' => 'TODO: please describe this field!',
+      'type' => 'int',
+      'not null' => FALSE,
+    ),
+    'updated' => array(
+      'description' => 'TODO: please describe this field!',
+      'type' => 'int',
+      'not null' => FALSE,
+    ),
+     'publish' => array(
+      'description' => 'entity status for publish/un-publish',
+      'type' => 'int',
+      'not null' => FALSE,
+    ),
+    
+    'deleted' => array(
+      'description' => 'soft deleted content 1 for deleted',
+      'type' => 'int',
+      'not null' => TRUE,
+      'default' => 0,
+    ),  
+  ),
+  'primary key' => array('ins_id'),
+);
+
+
+$schema['Institution_revision'] = array(
+  'description' => 'TODO: please describe this table!',
+  'fields' => array(
+    'ins_id' => array(
+      'description' => 'TODO: please describe this field!',
+      'type' => 'int',
+      'not null' => TRUE,
+    ),
+    'vid' => array(
+      'description' => 'TODO: please describe this field!',
+      'type' => 'serial',
+      'not null' => TRUE,
+    ),
+    'ins_type' => array(
+      'description' => 'Institute Type',
+      'type' => 'varchar',
+      'length' => '200',
+      'not null' => FALSE,
+    ),
+    'ins_code' => array(
+      'description' => 'Institute code',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'name' => array(
+      'description' => 'Institute name',
+      'type' => 'varchar',
+      'length' => '200',
+      'not null' => FALSE,
+    ),
+    'ins_local_lng' => array(
+      'description' => 'Institute/repository  local language',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'address' => array(
+      'description' => 'Institute address',
+      'type' => 'varchar',
+      'length' => '225',
+      'not null' => FALSE,
+    ),
+    'district' => array(
+      'description' => 'City of the Repository/Institute',
+      'type' => 'varchar',
+      'length' => '225',
+      'not null' => FALSE,
+    ),
+    'state' => array(
+      'description' => 'State of the Repository/Institute',
+      'type' => 'varchar',
+      'length' => '225',
+      'not null' => FALSE,
+    ),
+    'pin' => array(
+      'description' => ' Pin code of the Repository/Institute',
+      'type' => 'varchar',
+      'length' => '225',
+      'not null' => FALSE,
+    ),
+    'head_of_inst' => array(
+      'description' => 'Name of the Institution/Repository Head ',
+      'type' => 'varchar',
+      'length' => '225',
+      'not null' => FALSE,
+    ),
+    'phone' => array(
+      'description' => 'TODO: please describe this field!',
+      'type' => 'varchar',
+      'length' => '225',
+      'not null' => FALSE,
+    ),
+    'email' => array(
+      'description' => 'TODO: please describe this field!',
+      'type' => 'varchar',
+      'length' => '200',
+      'not null' => FALSE,
+    ),
+    'website' => array(
+      'description' => 'TODO: please describe this field!',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'total_manu' => array(
+      'description' => 'Total no of Manuscripts available with the Institute',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'paper_manu' => array(
+      'description' => 'Total no of Paper Manuscripts available with the Institute',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'palm_leaf_manu' => array(
+      'description' => 'No of Manuscripts available in Leaf material',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'other_material_manu' => array(
+      'description' => 'No of Manuscripts available in other Materials',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'illustrated_manu' => array(
+      'description' => 'No of Illustrated Manuscripts available ',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'catalog_published' => array(
+      'description' => 'No of Catalogues Published by Institute/Repository ',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'catalogue_type' => array(
+      'description' => 'Type of the Catalogue',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'manu_catalog_cat_wise_A' => array(
+      'description' => 'No of Manuscripts Catalogued- Category wise  A',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'manu_catalog_cat_wise_C' => array(
+      'description' => 'TODO: please describe this field!',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'manu_catalog_cat_wise_D' => array(
+      'description' => 'TODO: please describe this field!',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'manu_catalog_cat_wise_H' => array(
+      'description' => 'TODO: please describe this field!',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'manu_un_catalog_cat_wise' => array(
+      'description' => 'Total no of Manuscripts available in Un catalogued format category wise',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'catalogue_status' => array(
+      'description' => ' Status list of the Catalogue.',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'detail_rare_manu' => array(
+      'description' => 'Total no of Rare Manuscript available.',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'chronological_ranf_manu' => array(
+      'description' => 'Chronological range available for the Manuscripts.',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'state_ preservation' => array(
+      'description' => 'State of the Manuscript Preservation.',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'type_of_inst' => array(
+      'description' => 'Type of the Institution',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'status_of_conversation' => array(
+      'description' => 'Showing the Status of the conversation',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'brief_history' => array(
+      'description' => 'TODO: please describe this field!',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'date_information_collection' => array(
+      'description' => 'Information collection date about the Repository/Institute.',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'mrc' => array(
+      'description' => ' Selection of MRC under which Repository/Institute will be registered.',
+      'type' => 'varchar',
+      'length' => '100',
+      'not null' => FALSE,
+    ),
+    'uid' => array(
+      'description' => 'user who submit the entity',
+      'type' => 'int',
+      'not null' => FALSE,
+    ),
+    'created' => array(
+      'description' => 'TODO: please describe this field!',
+      'type' => 'int',
+      'not null' => FALSE,
+    ),
+    'updated' => array(
+      'description' => 'TODO: please describe this field!',
+      'type' => 'int',
+      'not null' => FALSE,
+    ),
+      'publish' => array(
+      'description' => 'entity status for publish/un-publish',
+      'type' => 'int',
+      'not null' => FALSE,
+    ),
+    
+     'deleted' => array(
+      'description' => 'soft deleted content 1 for deleted ',
+      'type' => 'int',
+      'not null' => TRUE,
+      'default' => 0,
+    ),  
+  ),
+  'primary key' => array('vid'),
+);
+
+
+
+  return $schema;
+}
+
+
+
+function institution_uninstall(){
+    
+    drupal_uninstall_schema('institution');
+    
+}
+

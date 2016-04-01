@@ -1,0 +1,4 @@
+; $Id$
+name =  New Registration CSV Importer
+description =  New Registration CSV Importer
+core = 7.x

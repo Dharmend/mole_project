@@ -1,0 +1,380 @@
+<?php
+/**
+* @file
+* Interface and implementation functions for the REST Server IP Filtering module.
+*/
+
+
+/**
+ * Represents the 'Off' state of the IP filter.
+ * @name IP_FILTER_MODE_OFF
+ */
+define( 'IP_FILTER_MODE_OFF', 0 );
+
+
+/**
+ * Represents the 'Allow' state of the IP filter.
+ * @name IP_FILTER_MODE_ALLOW 
+ */
+define( 'IP_FILTER_MODE_ALLOW', 1 );
+
+
+/**
+ * Represents the 'Block' state of the IP filter.
+ * @name IP_FILTER_MODE_BLOCK 
+ */
+define( 'IP_FILTER_MODE_BLOCK', 2 );
+
+
+/**
+ * Implements hook_perm().
+ * 
+ * Defines the available permissions for this module.
+ * 
+ * @return array
+ *   An array of this module's permissions.
+ */
+function rest_server_ip_filtering_perm() {
+  return array(
+    'manage ip filter lists',
+  );
+}
+
+
+/**
+ * Implementation of hook_services_authentication_info().
+ * 
+ * Creats the option to enable IP filtering for the Services server.
+ */
+function rest_server_ip_filtering_services_authentication_info() {
+  return array(
+    'title'             => t('IP filtering'),
+    'description'       => t("Checks that requests are originating from approved IP addresses, or blocks malicious IPs."),
+    'authenticate_call' => '_rest_server_ip_filtering_authenticate_call',
+    'security_settings' => '_rest_server_ip_filtering_endpoint_form',
+  );
+}
+
+
+/**
+ * Implementation of hook_menu().
+ * 
+ * Creats a menu link to the admin form for this module.
+ * 
+ * @return array
+ *   The menu structure for this module.
+ */
+function rest_server_ip_filtering_menu() {
+  $items = array(
+    'admin/config/services/rest_ip_filtering' => array(
+      'title' => 'REST IP Filtering',
+      'description' => 'Manage IP filtering list.',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('_rest_server_ip_filtering_form'),
+      'access arguments' => array('manage ip filter lists'),
+      'type' => MENU_NORMAL_ITEM,
+    ),
+  );
+  return $items;
+}
+
+
+/**
+ * Defines a form for the IP filtering page in the admin panel.
+ * 
+ * @return array
+ *   The complete form structure, as an array.
+ */
+function _rest_server_ip_filtering_form() {
+  // Build the frame for our form.
+  $form = array();
+  $form['panel'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Manage IP access list'),
+  );
+  
+  // The filter mode can be one of three options, so use a radio.
+  $form['panel']['filter_mode'] = array(
+    '#type' => 'radios',
+    '#title' => t('IP filtering mode'),
+    '#default_value' => variable_get('ip_filter_mode', IP_FILTER_MODE_OFF),
+    '#options' => array(
+      t('Off'),
+      t('Allow'),
+      t('Block')
+    ),
+  );
+  
+  // Prepare a string from the array of IP addresses.
+  $ip_filter_list = variable_get('ip_filter_list', array());
+  if (is_array($ip_filter_list)) {
+      $ip_filter_list = implode("\n", $ip_filter_list);
+  }
+  // Create the IP addresses input box.
+  $form['panel']['ip_addresses_panel'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('IP Address List'),
+  );
+  $form['panel']['ip_addresses_panel']['ip_list_instructions'] = array( '#value' => 'Enter each IP address on a new line:' );
+  $form['panel']['ip_addresses_panel']['ip_list'] = array(
+    '#type' => 'textarea',
+    '#title' => t('IP List'),
+    '#default_value' => $ip_filter_list,
+    '#required' => FALSE,
+    '#cols' => 30,
+    '#rows' => 7,
+    '#wysiwyg' => FALSE, // Disables automatic WYSIWYG editors on this textarea.
+  );
+  
+  // Add a submit button.
+  $form['panel']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save'),
+  );
+  
+  // Return the completed form.
+  return $form;
+}
+
+
+/**
+ * Handles submission of the IP filter form.
+ * 
+ * @param array $form
+ *   A complete representation of the form.
+ * @param array $form_state
+ *   Drupal's standard $form_state array, including user-submitted data.
+ * @return void
+ */
+function _rest_server_ip_filtering_form_submit( $form, &$form_state ) {
+  
+  // Save the IP filtering mode, defaulting to 'Off' in case of problems.
+  $filter_mode = $form_state['values']['filter_mode'];
+  if ($filter_mode == IP_FILTER_MODE_ALLOW || $filter_mode == IP_FILTER_MODE_BLOCK)
+    variable_set('ip_filter_mode', (int)$filter_mode);
+  else
+      variable_set('ip_filter_mode', (int)IP_FILTER_MODE_OFF);
+  
+  // Create an array from the list of IP addresses.
+  $ip_list = $form_state['values']['ip_list'];
+  $ip_list = str_replace("\r", "\n", $ip_list); // Convert \r to \n.
+  $ip_array = explode("\n", $ip_list);
+  $ip_array = array_values(array_filter($ip_array)); // Remove empty array values and reindex.
+  
+  // Save the array of IP addresses.
+  variable_set('ip_filter_list', $ip_array);
+  
+  drupal_set_message(t('IP filtering settings saved.'));
+  
+  return;
+}
+
+
+/**
+ * Creates the form for the service authentication settings page.
+ * 
+ * @param type $settings
+ *   The settings for the current endpoint.
+ * @return array
+ *   The complete form structure, less the 'save' button, as an array.
+ */
+function _rest_server_ip_filtering_endpoint_form($settings) {
+  
+  $form = array();
+  
+  // The filter mode can be one of three options, so use a radio.
+  $form['endpoint_ip_filter_mode'] = array(
+    '#type' => 'radios',
+    '#title' => t('IP filtering mode'),
+    '#default_value' => (is_array($settings) && array_key_exists('endpoint_ip_filter_mode', $settings)) ? $settings['endpoint_ip_filter_mode'] : variable_get('ip_filter_mode', IP_FILTER_MODE_OFF),
+    '#options' => array(
+      t('Use Global Settings'),
+      t('Allow'),
+      t('Block')
+    ),
+  );
+  
+  // Prepare a string from the array of IP addresses.
+  $ip_filter_list = (is_array($settings) && array_key_exists('endpoint_ip_filter_list', $settings)) ? $settings['endpoint_ip_filter_list'] : variable_get('ip_filter_list', array());
+  if (is_array($ip_filter_list)) {
+      $ip_filter_list = implode("\n", $ip_filter_list);
+  }
+  // Create the IP addresses input box.
+  $form['ip_list_instructions'] = array('#value' => 'Enter each IP address on a new line:');
+  $form['endpoint_ip_filter_list'] = array(
+    '#type' => 'textarea',
+    '#title' => t('IP List'),
+    '#default_value' => $ip_filter_list,
+    '#required' => FALSE,
+    '#cols' => 30,
+    '#rows' => 7,
+    '#wysiwyg' => FALSE, // Disables automatic WYSIWYG editors on this textarea.
+  );
+  
+  return $form;
+}
+
+
+/**
+ * Authenticates the user's IP address.
+ * 
+ * Authenticates the current user's IP address against the list, or ignores it
+ * entirely if IP address filtering is turned off.
+ * 
+ * @return boolean
+ *   FALSE to let the user through, TRUE to stop them in their tracks.
+ *   Alternatively, returns the result of a services_error() call to stop the
+ *   user accessing the page.
+ * 
+ * @see services_error()
+ */
+function _rest_server_ip_filtering_authenticate_call() {
+  
+  // Determine the user's IP address.
+  $user_ip = $_SERVER['REMOTE_ADDR'];
+  
+  // Determine if the REST endpoint override is active:
+  // Load in all the available Services endpoints.
+  $endpoints = services_endpoint_load_all();
+  // Traverse the endpoints list until we find the active one.
+  foreach ($endpoints as $ep) {
+    if (preg_match('/' . preg_quote($ep->path) . '/', $_SERVER['REQUEST_URI'])) {
+      // Found current endpoint.
+      break;
+    }
+  }
+  
+  // Check the active endpoint to see if it overrides the global IP filtering settings.
+  $valid_node_types = array();
+  if (array_key_exists('rest_server_ip_filtering', $ep->authentication)
+   && is_array($ep->authentication['rest_server_ip_filtering'])
+   && array_key_exists('endpoint_ip_filter_mode', $ep->authentication['rest_server_ip_filtering'])
+   && array_key_exists('endpoint_ip_filter_list', $ep->authentication['rest_server_ip_filtering'])
+   && $ep->authentication['rest_server_ip_filtering']['endpoint_ip_filter_mode'] != IP_FILTER_MODE_OFF ) {
+    // Convert the text field into an array of IP addresses.
+    $ip_list = str_replace("\r", "\n", $ep->authentication['rest_server_ip_filtering']['endpoint_ip_filter_list']);
+    $ip_list = explode("\n", $ip_list);
+    $ip_list = array_values(array_filter($ip_list));
+    // Are we allowing or blocking?
+    $ip_filter_mode = $ep->authentication['rest_server_ip_filtering']['endpoint_ip_filter_mode'];
+    
+    //error_log( 'Using ENDPOINT\'S custom IP rules:' );
+  }
+  else {
+    // Get the list of IP addresses to filter.
+    $ip_list = variable_get('ip_filter_list', array());
+    // Find out which IP filtering method is active.
+    $ip_filter_mode = variable_get('ip_filter_mode', IP_FILTER_MODE_OFF);
+    
+    //error_log( 'Using GLOBAL IP rules:' );
+  }
+  
+  //error_log( 'IP filter mode: ' . $ip_filter_mode );
+  //error_log( 'IP list: ' . print_r( $ip_list, true ));
+  
+  // Attempt to filter the IP address.
+  switch ($ip_filter_mode) {
+    
+    // IP filtering is turned off so just let the visitor pass.
+    case IP_FILTER_MODE_OFF:
+    default:
+      return FALSE; // Returning FALSE lets the visitor continue.
+      
+    case IP_FILTER_MODE_ALLOW:
+      if (_rest_server_ip_filtering_test_ip($user_ip, $ip_list)) {
+        return FALSE; // The user's IP is in the allow list so let them through.
+      }
+      return services_error( "Insufficient permissions to access this resource.", 401 );
+    
+    case IP_FILTER_MODE_BLOCK:
+      if (_rest_server_ip_filtering_test_ip($user_ip, $ip_list)) {
+        return services_error( "No permission to access this resource.", 401 );
+      }
+      return FALSE; // The user's IP is not in the block list so let them through.
+  }
+  
+  return FALSE;
+}
+
+
+/**
+ * Tests the given IP address against the provided ruleset.
+ * 
+ * Currently supports IPv4 addresses only.
+ * 
+ * @param string $ip
+ *   The IP address to test, e.g. '127.0.0.1'.
+ * @param array $ruleset
+ *   An array of IP address rule strings. Wildcards (*) are allowed. For
+ *   example, '127.0.0.1' or '192.168.*.*'. Note that '192.168.*' is not a valid
+ *   rule - each component of the IP address must be either specified or set as
+ *   a wildcard.
+ * @return boolean
+ *   TRUE if the IP address matches any one of the rules in the ruleset, FALSE
+ *   if it matches none.
+ */
+function _rest_server_ip_filtering_test_ip($ip, $ruleset) {
+  
+  // Confirm that the given components are valid.
+  try {
+    // Parameter 1 must be a string.
+    if (!is_string($ip)) {
+      throw new Exception("Function _ip_matches_ruleset expects parameter 1 to be a string.");
+    }
+    
+    // Parameter 2 must be an array.
+    if (!is_array($ruleset)) {
+      throw new Exception("Function _ip_matches_ruleset expects parameter 2 to be an array.");
+    }
+  }
+  catch (Exception $e) {
+    die ('Error in file '. $e->getFile() .' on line '. $e->getLine() .': '. $e->getMessage());
+  }
+  
+  // Break the IP into its component parts.
+  $ip_components = explode('.', $ip);
+  
+  // Check the IP against the given rules.
+  foreach ($ruleset as $rule) {
+    
+    // Break the rule into its component parts.
+    $rule_components = explode('.', $rule);
+
+    /**
+     * The comparison function works by checking each component of the given IP
+     * address against each component of the rule. This array tracks the boolean
+     * results of those checks per component.
+     */
+    $match_components = array(0 => FALSE);
+
+    /**
+     * @todo For IPv6 compatibility the component count will need to be expanded
+     *   out to allow for IP address shortening (i.e. the :: symbol in IPv6
+     *   addresses). 
+     */
+    if (count($ip_components) == count($rule_components)) {
+      
+      for ($i = 0; $i < count($ip_components); $i++) {
+        
+        // Test the current IP component against its corresponding rule
+        // component, remembering to also test the rule component against the
+        // wildcard character.
+        if ($rule_components[$i] == '*' || $rule_components[$i] == $ip_components[$i]) {
+          $match_components[$i] = TRUE;
+        }
+        else {
+          $match_components[$i] = FALSE;
+          break; // We've found a non-matching component so we can stop the search here.
+        }
+      }
+    }
+    
+    // Test the array of match results to see if the IP address passed validation.
+    if (!in_array(FALSE, $match_components)) {
+      return TRUE; // We can terminate the function safely here because the IP address has matched at least one rule.
+    }
+  }
+  
+  // Processing should never reach here, so default to returning a FALSE (IP does not match).
+  return FALSE;
+}

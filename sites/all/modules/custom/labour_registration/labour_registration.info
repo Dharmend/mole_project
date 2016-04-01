@@ -1,0 +1,6 @@
+name = labour registration
+description = Labour registration of new entry
+core = 7.x
+package = 'custom'
+
+

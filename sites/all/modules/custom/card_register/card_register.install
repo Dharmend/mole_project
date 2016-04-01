@@ -1,0 +1,130 @@
+<?php
+/**
+ * @file
+ * Install, update and uninstall functions for the card register  module.
+ */
+function card_register_schema(){
+$schema['card_register'] = array(
+    'description' => 'Stores Personal detail information.',
+    'fields' => array(
+      'id'  => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+        'description' => 'Primary Key: Unique id.',
+      ),
+      'authority_card_holder' => array(
+        'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '',
+      ),
+      'designation' => array(
+        'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '',
+      ),
+      'official_address1' => array(
+        'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '',
+      ),
+      'official_address2' => array(
+        'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '',
+      ),
+      'state' => array(
+         'type' => 'varchar',
+        'length' => 10,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '',
+      ),
+      'district' => array(
+        'type' => 'varchar',
+        'length' => 10,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '',
+      ),
+      'pin_code' => array(
+        'type' => 'varchar',
+        'length' => 6,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '',
+      ),
+      'type_card_request' => array(
+       'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '',
+      ),
+      'letter_date' => array(
+       'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '',
+      ),
+     
+      'letter_no' => array(
+       'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '',
+      ),
+      'department_organisation_name' => array(
+       'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '',
+      ),
+      'organisation_unit_no' => array(
+       'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '',
+      ),
+
+        'aadhaar_no' => array(
+       'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '',
+      ),
+
+         'card_create_date' => array(
+       'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '',
+      ),
+
+     
+      'approved' => array(
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+        'not null' => TRUE,
+        'description' => '',
+      ),
+      
+    ),  
+    'primary key' => array('id'),
+  );
+  return $schema;
+ }

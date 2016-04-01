@@ -1,0 +1,6 @@
+name = Assign Agency to download 
+description = Assign Agency to download multiple village data
+core = 7.x
+package = 'custom'
+
+

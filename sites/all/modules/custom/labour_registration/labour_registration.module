@@ -1,0 +1,882 @@
+<?php
+
+
+
+function labour_registration_permission() {
+  return array(
+    'access labour registration content' => array(
+      'title' => t('Access content for the labour registration module'),
+    )
+  );
+}
+
+function labour_registration_menu(){
+    $items['labour-register'] = array(
+        'title' => 'New Registration Cum Self Declaration Form',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('labour_register',1),
+        'access arguments' => array('access labour registration content'),
+       // 'access callback' => TRUE,
+     );
+    $items['lab-reg/%/edit'] = array(
+        'title' => 'Labour Data',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('labour_data'),
+        'access callback' => TRUE,
+     );
+    $items['lab-reg/%/%/delete'] = array(
+        'title' => 'Labour Delete',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('labour_delete'),
+        'access callback' => TRUE,
+     );
+    $items['lab-reg-list'] = array(
+        'title' => 'New Registration List',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('reg_list'),
+        'access arguments' => array('access labour registration content'),
+       // 'access callback' => TRUE,
+     );
+    return $items;
+}
+
+function reg_list($form, &$form_state){
+    
+            //Show Listing of new users
+        $header = array('S.N','Full Name','Fathers\'s Name','Mother\'s Name','DoB','Gender');
+        $tbl = 'registration'; 
+
+        $query = db_select($tbl.".individual_21", "n");
+        $query->fields('n');
+        //$query->where('substr(house_hold_id,1,11) = :hid',array(':hid' => $house_hold_id));
+        $query = $query->extend('TableSort')->extend('PagerDefault')->limit(20);
+        $result = $query->execute();
+
+       $rows = array();
+
+        $i = 1;
+                      while($data = $result->fetchObject()){
+
+                        // Fill the table rows
+                          $rows[$data->name] = array(
+                          $i,
+                          $data->name,
+                          $data->fathername,
+                          $data->mothername,
+                          $data->dob,    
+                          get_gender($data->genderid),
+                      );
+                        $i++;
+                    }
+
+//       $form['new-register-message'] = array(
+//         '#markup' => t('<br><br><br>'),
+//         );  
+
+        $form['table'] = array(
+             '#theme' => 'table',
+             '#header' => $header,
+             '#rows' => $rows,
+             '#empty' => t('Table has no row!'),
+             '#prefix' => "<div id='my_new_printable_div'>",
+             '#suffix' => "</div>",
+             );
+
+       return $form;
+    
+}
+
+function get_state($sid){
+
+      $state_reg_lst = _get_location('state');
+      $pstate_d = $state_reg_lst[$sid];
+      return $pstate_d;
+}
+function get_district($sid,$did){
+
+      $district_reg_lst = _get_location('district',$sid);
+      $pdistrict_d = $district_reg_lst[$did];
+      return $pdistrict_d;
+}
+
+function get_tehsil($sid,$did,$tid){
+    
+    $tahsil_list_ack = _get_location('tehsil',$sid,$did);
+    $ptehsil_d = $tahsil_list_ack[$tid];
+    return $ptehsil_d;          
+}
+
+function get_village($sid,$did,$tid,$vid){
+    
+    $village_list_ack = _get_location('village',$sid,$did,$tid);
+    $village_d = $village_list_ack[$vid];
+    return $village_d;
+}
+
+function labour_register($form,&$form_state){
+  
+//  if($_SESSION['rural_urban_value'] != ''){
+//      $edit_sch = 'uw_'.$_SESSION['rural_urban_value'];
+//  }
+  $data = array();
+
+ if($_SESSION['flag'] == '0'){
+  $form['preview-reg-msg'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'Preview',  
+    '#prefix' => '<div class="reg-preview-msg">',
+   );
+
+  
+  $form['preview-reg-msg']['preview_name'] = array(
+    '#type' => 'item',
+	
+    '#markup' => '<label>Full Name </label>: '.$_SESSION['reg_name'].'<br><label>Father\'s Name </label> : '.$_SESSION['reg_fathername'].
+      '<br><label>Mother\'s Name </label>: '.$_SESSION['reg_mothername'].'<br><label>Date of Birth </label>:  '.$_SESSION['reg_dob'].'<br><label>Gender </label>: '.get_gender($_SESSION['reg_gender']).'<br><label>Permanent Address </label> : '.$_SESSION['reg_p_address1'].'<br><label>Permanent Address2 </label>: '
+      . ''.$_SESSION['reg_p_address2'].'<br><label> 
+	  
+	  
+	  State </label> : <span> '.get_state($_SESSION['reg_p_state']).'</span> <br><label>District </label>: <span>'.get_district($_SESSION['reg_p_state'],$_SESSION['reg_p_district']).'</span><br><label>Tehsil </label>:  <span>'.get_tehsil($_SESSION['reg_p_state'],$_SESSION['reg_p_district'],$_SESSION['reg_p_tehsil']).'</span><br><label> Village </label>:  <span>'.get_village($_SESSION['reg_p_state'],$_SESSION['reg_p_district'],$_SESSION['reg_p_tehsil'],$_SESSION['reg_p_village']).'</span><br> <label>Pincode </label>: '.$_SESSION['reg_p_pincode'].''
+      . '<div class="current-add_reg"><label>Current Address </label>: '.$_SESSION['reg_c_address1'].'<br><label>Current Address </label>: '.$_SESSION['reg_c_address1']. '<br><label>Current Address2 </label>: '.$_SESSION['reg_c_address2']. '<br><label>State </label> : <span>'.get_state($_SESSION['reg_c_state']). '</span><label>District </label> <br> : <span>'.get_district($_SESSION['reg_c_state'],$_SESSION['reg_c_district']).'</span><label> Tehsil</label> <br> : <span> '.get_tehsil($_SESSION['reg_c_state'],$_SESSION['reg_c_district'],$_SESSION['reg_c_tehsil']).'</span><label> Village </label> <br> : <span> '.get_village($_SESSION['reg_c_state'],$_SESSION['reg_c_district'],$_SESSION['reg_c_tehsil'],$_SESSION['reg_c_village']).'</span><br> <label>Pincode </label>: '.$_SESSION['reg_c_pincode'].
+      '</div>  <label>I am an Indian Citizen. </label>: '.$_SESSION['reg_ic_indian_citz'].'<br> <label> I am an unorganized worker.</label>: '.$_SESSION['reg_ic_uw']
+          .'<br><label> I am NOT a member of Employee Provident Fund Organization (EPFO) or Employee State Insurance Corporation(ESIC)</label>: <span class="reg_eid">'.$_SESSION['reg_uw_criteria_0']
+          .'<br></span><label>My average income per month is less than Rs. 15,000 per month</label>: '.$_SESSION['reg_uw_criteria_1']
+          .'<br><label>I am above 18 years of age</label>: '.$_SESSION['reg_uw_criteria_2']
+          .'<br> <label>My Aadhaar Number is </label>:  '.$_SESSION['reg_aadhaar']
+          .'<br> <label>Enrolment ID </label>: '.$_SESSION['reg_e_id']
+          .'<br><label> I also authorize Ministry of Labour and employment to share this information with the Ministries / Departments operating Social Security Schemes </label>: <span class="reg_eid">'.$_SESSION['reg_auth_ministry']
+	  
+          .'</span><br> <label><span class="fur_adhar">I am not having/furnishing my Aadhar number </span></label>: '.$_SESSION['reg_furnish_adhar']
+          .'<br> <label>I am furnishing Rs 30/- for the registration and MPNSS card </label>: '.$_SESSION['reg_pay_30']
+          .'<br> <label>Mobile Number - 91+ </label>: '.$_SESSION['reg_mobile_no']
+          .'<br> <label>Bank Name </label>: '.$_SESSION['reg_bank_name']
+          .'<br> <label>Bank Account Number </label>:'.$_SESSION['reg_bank_account_no']
+          .'<br> <label>Bank Branch </label> : '.$_SESSION['reg_bank_branch']
+          .'<br> <label>Primary Occupation </label>: '.$_SESSION['reg_primary_occupation_code']
+          .'<br> <label>Secondary Occupation </label>: '.$_SESSION['reg_secondary_occupation_code'],    
+//'#prefix' => '<div class="order">Showing Preview Message',
+
+    '#suffix' => '</div>',  
+    );
+ } 
+
+ $form['name'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $_SESSION['reg_name'],  
+    '#title' => t('Full Name'),
+    '#required' => TRUE,
+    '#prefix' => '<div class="reg_fst_list">', 
+    '#size' => 30,
+    );
+ 
+   $form['fathername'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $_SESSION['reg_fathername'],  
+    '#title' => t('Father\'s Name'),  
+    '#required' => TRUE,
+    '#size' => 30,
+    );
+   
+    $form['mothername'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $_SESSION['reg_mothername'],  
+    '#title' => t('Mother\'s Name'),  
+    '#required' => TRUE,
+    '#size' => 30,
+    );
+ 
+ $format = 'd-m-Y';
+ $form['dob'] = array(
+     '#type' => 'date_select', // types 'date_popup', 'date_text' and 'date_timezone' are also supported. See .inc file.
+     '#title' => t('Date of Birth'),
+     '#default_value' => $_SESSION['reg_dob'], 
+     '#date_format' => $format,
+     '#date_label_position' => 'within', // See other available attributes and what they do in date_api_elements.inc
+     '#date_timezone' => date_default_timezone(), // Optional, if your date has a timezone other than the site timezone.
+     '#date_increment' => 15, // Optional, used by the date_select and date_popup elements to increment minutes and seconds.
+     '#date_year_range' => '-80:+0', // Optional, used to set the year range (back 3 years and forward 3 years is the default).
+    '#datepicker_options' => array(), // Optional, as of 7.x-2.6+, used to pass in additional parameters from the jQuery Datepicker widget.
+            '#required' => TRUE,
+
+ 
+  );
+  $reg_gender = array(0 => 'Select',1 => 'Male',2 => 'Female',3=> 'Transgender');
+  $form['genderid'] = array(
+    '#type' => 'select',
+    '#options' => $reg_gender,
+    '#default_value' => $_SESSION['reg_gender'],
+    '#required' => TRUE,
+    '#suffix' => '</div>', 
+    '#title' => t('Gender'),  
+    );
+ 
+   $form['permanent-address'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'Permanent Address',  
+    '#prefix' => '<div class="permanent-address-fields">',
+   );
+   $form['permanent-address']['p_address1'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $_SESSION['reg_p_address1'],  
+    '#required' => TRUE,
+    '#title' => t('Permanent Address'),  
+    '#size' => 30,
+    );
+    
+   $form['permanent-address']['p_address2'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $_SESSION['reg_p_address2'],  
+    //'#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Permanent Address 2'),  
+    '#size' => 30,
+    );
+        
+$state_list_permanent = _get_location('state');
+$reg_state_sess = isset($_SESSION['reg_p_state']) ? $_SESSION['reg_p_state'] : key($state_list_permanent);
+$state_selected_permanent = isset($form_state['values']['state_permanent']) ? $form_state['values']['state_permanent'] : $reg_state_sess;
+//$state_val = _drupal_session_read('state_value');
+
+//$session_village = ($_SESSION['village_value'] !='') ? $_SESSION['village_value']: key($village_list);
+
+$form['permanent-address']['state_permanent'] = array(
+        '#title' => 'State',
+        '#type' => 'select',
+        '#options' => $state_list_permanent,
+        '#default_value' => $state_selected_permanent,
+        '#required' => TRUE,
+        '#ajax' => array(
+            'callback' => 'ajax_callback_state_permanent',
+            'wrapper' => 'wrapper_state_permanent',
+            
+        ),
+        
+    );
+
+     
+  $district_list_permanent = _get_location('district',$state_selected_permanent);
+  $reg_dis_sess = isset($_SESSION['reg_p_district']) ? 	$_SESSION['reg_p_district'] : $district_list_permanent;
+  $district_selected_permanent = isset($form_state['values']['district_permanent']) ? $form_state['values']['district_permanent'] : $reg_dis_sess;
+    $form['permanent-address']['district_permanent'] = array(
+        '#title' => 'District',
+        '#type' => 'select',
+        '#options' => $district_list_permanent,
+        '#default_value' => $district_selected_permanent,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_state_permanent">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_district_permanent',
+            'wrapper' => 'wrapper_tehsil_permanent',
+            
+        ),
+        
+    );
+
+   
+    $tehsil_list_permanent = _get_location('tehsil',$state_selected_permanent,$district_selected_permanent);
+    $reg_teh_sess = isset($_SESSION['reg_p_tehsil']) ? $_SESSION['reg_p_tehsil'] : key($tehsil_list_permanent);
+    $tehsil_selected_permanent = isset($form_state['values']['tehsil_permanent']) ? $form_state['values']['tehsil_permanent'] : $reg_teh_sess; 
+    $form['permanent-address']['tehsil_permanent'] = array(
+        '#title' => 'Tehsil',
+        '#type' => 'select',
+        '#options' => $tehsil_list_permanent,
+        '#default_value' => $tehsil_selected_permanent,
+         '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_tehsil_permanent">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_tehsil_permanent',
+            'wrapper' => 'wrapper_village_permanent',
+            
+        )
+    );
+    
+    $village_list_permanent = _get_location('village',$state_selected_permanent,$district_selected_permanent,$tehsil_selected_permanent);
+    $reg_vill_sess = isset($_SESSION['reg_p_village']) ? $_SESSION['reg_p_village'] : key($village_list_permanent);
+    $village_selected_permanent = isset($form_state['values']['village_permanent']) ? $form_state['values']['village_permanent'] : $reg_vill_sess;
+    $form['permanent-address']['village_permanent'] = array(
+        '#title' => 'Village/Town',
+        '#type' => 'select',
+        '#options' => $village_list_permanent,
+        '#default_value' => $village_selected_permanent,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_village_permanent">',
+        '#suffix' => '</div>',
+//        '#ajax' => array(
+//            'callback' => 'ajax_callback_state',
+//            'wrapper' = > 'wrapper_state',
+//            
+//        )
+    );
+	
+   $form['permanent-address']['p_pincode'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $_SESSION['reg_p_pincode'],  
+    '#title' => t('PIN Code'),
+    '#suffix' => '</div>',   
+    '#size' => 30,
+    );
+ $form['current-address'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'Current Address (If different from Permanent)',  
+    '#prefix' => '<div class="current-address-fields">',
+   );
+   $form['current-address']['c_address1'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $_SESSION['reg_c_address1'],
+    '#required' => TRUE,
+  
+    //'#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Current Address'),  
+    '#size' => 30,
+    );
+  
+    
+   $form['current-address']['c_address2'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $_SESSION['reg_c_address2'],  
+    //'#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Current Address 2'),  
+    '#size' => 30,
+    );
+
+$state_list_p = _get_location('state');
+$reg_pstate_sess = isset($_SESSION['reg_c_state']) ? $_SESSION['reg_c_state'] : key($state_list_p);
+$state_selected_p = isset($form_state['values']['state_p']) ? $form_state['values']['state_p'] : $reg_pstate_sess;
+$form['current-address']['state_p'] = array(
+        '#title' => 'State',
+        '#type' => 'select',
+        '#options' => $state_list_p,
+        '#default_value' => $state_selected_p,
+        '#prefix' => '<div id="wrapper_stated_p">',
+        '#suffix' => '</div>',
+        //'#required' => TRUE,
+        '#ajax' => array(
+            'callback' => 'ajax_callback_state_p',
+            'wrapper' => 'wrapper_state_p',
+            
+        ),
+        
+    );
+
+     
+   $district_list_p = _get_location('district',$state_selected_p);
+   $reg_pdis_sess = isset($_SESSION['reg_c_district']) ? $_SESSION['reg_c_district'] : key($district_list_p);
+   $district_selected_p = isset($form_state['values']['district_p']) ? $form_state['values']['district_p'] : $reg_pdis_sess;
+   $form['current-address']['district_p'] = array(
+        '#title' => 'District',
+        '#type' => 'select',
+        '#options' => $district_list_p,
+        '#default_value' => $district_selected_p,
+        //'#required' => TRUE,
+        '#prefix' => '<div id="wrapper_state_p">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_district_p',
+            'wrapper' => 'wrapper_tehsil_p',
+            
+        ),
+        
+    );
+
+   
+    $tehsil_list_p = _get_location('tehsil',$state_selected_p,$district_selected_p);
+    $reg_tehp_sess = isset($_SESSION['reg_c_tehsil']) ? $_SESSION['reg_c_tehsil'] : key($tehsil_list_p);
+    $tehsil_selected_p = isset($form_state['values']['tehsil_p']) ? $form_state['values']['tehsil_p'] : $reg_tehp_sess; 
+    $form['current-address']['tehsil_p'] = array(
+        '#title' => 'Tehsil',
+        '#type' => 'select',
+        '#options' => $tehsil_list_p,
+        '#default_value' => $tehsil_selected_p,
+         //'#required' => TRUE,
+        '#prefix' => '<div id="wrapper_tehsil_p">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_tehsil_p',
+            'wrapper' => 'wrapper_village_p',
+            
+        )
+    );
+    
+    $village_list_p = _get_location('village',$state_selected_p,$district_selected_p,$tehsil_selected_p);
+    $reg_villp_sess = isset($_SESSION['reg_c_village']) ? $_SESSION['reg_c_village'] : key($village_list_p);
+    $village_selected_p = isset($form_state['values']['village_p']) ? $form_state['values']['village_p'] : $reg_villp_sess;
+    $form['current-address']['village_p'] = array(
+        '#title' => 'Village/Town',
+        '#type' => 'select',
+        '#options' => $village_list_p,
+        '#default_value' => $village_selected_p,
+        //'#required' => TRUE,
+        '#prefix' => '<div id="wrapper_village_p">',
+        '#suffix' => '</div>',
+);
+
+   $form['current-address']['c_pincode'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $_SESSION['reg_c_pincode'],  
+    '#title' => t('PIN Code'),
+    '#suffix' => '</div>',   
+    '#size' => 30,
+    );
+
+$form['i-wish'] = array(
+ '#markup' => t('I wish to apply for registration as unorganized worker per the provisions of Section 10(3) of the Unorganized Workers’ Social Security Act 2008 and issuance of Mahatma Phule National Social Security (MPNSS) Card.<br><br>'),
+ '#default_value' => $_SESSION['reg_i-wish'],
+ '#prefix' => '<div class="reg_last_list">',   
+  );
+$form['declare'] = array(
+ '#markup' => t('Further, I hereby declare that-'),
+ '#default_value' => $_SESSION['reg_declare'],   
+);
+
+//$indian_citz = array('I am an Indian Citizen.');
+//$uw_array = array('I am an unorganized worker.');
+
+$form['ic_indian_citz'] = array(
+    '#type' => 'checkbox',
+    '#default_value' => $_SESSION['reg_indian_citz'],
+    //'#options' => $indian_citz,
+    '#title' => t('I am an Indian Citizen'),  
+    );
+$form['ic_uw'] = array(
+    '#type' => 'checkbox',
+    '#default_value' => $_SESSION['reg_ic_uw'],
+    //'#options' => $uw_array,
+    '#title' => t('I am an unorganized worker'), 
+    '#required' => TRUE, 
+ 
+    );
+
+//$uw_criteria_0 = array('I am NOT a member of Employee Provident Fund Organization (EPFO) or Employee State Insurance Corporation (ESIC)');
+//$uw_criteria_1 = array('My average income per month is less than Rs. 15,000 per month');
+//$uw_criteria_2 = array('I am above 18 years of age');
+
+$form['uw_criteria_0'] = array(
+    '#type' => 'checkbox',
+    //'#options' => $uw_criteria_0,
+    '#default_value' => $_SESSION['reg_uw_criteria_0'],
+    '#title' => t('I am NOT a member of Employee Provident Fund Organization (EPFO) or Employee State Insurance Corporation (ESIC)'),  
+    );
+$form['uw_criteria_1'] = array(
+    '#type' => 'checkbox',
+    //'#options' => $uw_criteria_1,
+    '#default_value' => $_SESSION['reg_uw_criteria_1'],
+    '#title' => t('My average income per month is less than Rs. 15,000 per month'),  
+     '#required' => TRUE, 
+
+    );
+$form['uw_criteria_2'] = array(
+    '#type' => 'checkbox',
+    '#default_value' => $_SESSION['reg_uw_criteria_2'],
+    '#title' => t('I am above 18 years of age'),  
+    '#required' => TRUE, 
+
+    );
+
+  $form['adhar-detail'] = array(
+   '#markup' => t('I hereby authorize the appropriate Authorities to utilize and store my Aadhar details, including my biometric information and photograph in the MPNSS Card.<br><br>'),
+   '#default_value' => $_SESSION['reg_adhar-detail'],
+    ); 
+  
+   $form['aadhaar'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $_SESSION['reg_aadhaar'],
+    '#title' => t('My Aadhaar Number is'),  
+    '#size' => 30,
+    );
+   $form['e_id'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $_SESSION['reg_e_id'],
+    '#title' => t('Or Enrolment ID number of Aadhar when not having Aadhar:'),  
+    '#size' => 30,
+    );
+   
+   $form['auth_ministry'] = array(
+    '#type' => 'checkbox',
+    '#default_value' => $_SESSION['reg_auth_ministry'],   
+    '#title' => t('I also authorize Ministry of Labour and employment to share this information with the Ministries / Departments operating Social Security Schemes.'),  
+    );
+   
+   $form['furnish_adhar'] = array(
+    '#type' => 'checkbox',
+    '#default_value' => $_SESSION['reg_furnish_adhar'],   
+    '#title' => t('I am not having/furnishing my Aadhar number.'),  
+    );
+   $form['pay_30'] = array(
+    '#type' => 'checkbox',
+    '#default_value' => $_SESSION['reg_pay_30'],   
+    '#title' => t('I am furnishing Rs 30/- for the registration and MPNSS card.'),  
+    );
+   $form['mobile_no'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $_SESSION['reg_mobile_no'],
+    '#required' => TRUE, 
+    '#title' => t('Mobile Number - 91+'),  
+    '#size' => 30,
+    );
+      
+   $form['bank_name'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $_SESSION['reg_bank_name'],   
+    '#title' => t('Bank Name'),  
+    '#size' => 30,
+    );
+   $form['bank_account_no'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $_SESSION['reg_bank_account_no'],       
+    '#title' => t('Bank Account Number'),  
+    '#size' => 30,
+    );
+   $form['bank_branch'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $_SESSION['reg_bank_branch'],  
+    '#title' => t('Bank Branch'),  
+    '#size' => 30,
+    );
+   $primary_occupation = array(0 => 'Select',1 => 'Farmer',2 => 'Fisherman',3 => 'Own business',4 => 'Govt job','5' => 'Others');
+   $form['primary_occupation_code'] = array(
+    '#type' => 'select',
+    '#default_value' => $_SESSION['reg_primary_occupation_code'],
+    '#options' => $primary_occupation,   
+    '#title' => t('Primary Occupation'),  
+    //'#size' => 30,
+    );
+   $secondary_occupation = array(0 => 'Select',1 => 'Tailor',2 => 'Milk vendor',3 => 'Money Lander',4 => 'Others');
+   $form['secondary_occupation_code'] = array(
+    '#type' => 'select',
+    '#default_value' => $_SESSION['reg_secondary_occupation_code'],
+    '#options' => $secondary_occupation,  
+    '#title' => t('Secondary Occupation'),
+    '#suffix' => '</div>',   
+    //'#size' => 30,
+    );
+ 
+  $form['deleted'] = array(
+      '#type' => 'hidden',
+      '#value' => 0,
+  );
+  
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save'),
+    '#weight' => 100,
+  );
+  
+  $form['actions']['preview'] = array(
+      '#type' => 'submit',
+      '#value' => t('Preview'),
+      '#weight' => 105,
+      '#submit' => array('preview_labour_register'),
+  );
+
+  $form['actions']['reset'] = array(
+      '#type' => 'submit',
+      '#value' => t('Reset'),
+      '#weight' => 110,
+      '#submit' => array('register_reset'),
+  );
+  
+  
+return $form;  
+
+}
+
+function register_reset(){
+      if($_SESSION['reg_name'] !=''){
+              unset($_SESSION['reg_name']);
+       }
+       if($_SESSION['reg_fathername'] !=''){
+              unset($_SESSION['reg_fathername']);
+       }
+       if($_SESSION['reg_mothername'] !=''){
+              unset($_SESSION['reg_mothername']);
+       }
+       if($_SESSION['reg_dob'] !=''){
+              unset($_SESSION['reg_dob']);
+       }
+       if($_SESSION['reg_gender'] !=''){
+              unset($_SESSION['reg_gender']);
+       }
+       if($_SESSION['reg_p_address1'] !=''){
+              unset($_SESSION['reg_p_address1']);
+       }
+       if($_SESSION['reg_p_address2'] !=''){
+              unset($_SESSION['reg_p_address2']);
+       }
+       if($_SESSION['reg_p_state'] !=''){
+              unset($_SESSION['reg_p_state']);
+       }
+       if($_SESSION['reg_p_district'] !=''){
+              unset($_SESSION['reg_p_district']);
+       }
+       if($_SESSION['reg_p_tehsil'] !=''){
+              unset($_SESSION['reg_p_tehsil']);
+       }
+       if($_SESSION['reg_p_village'] !=''){
+              unset($_SESSION['reg_p_village']);
+       }
+       if($_SESSION['reg_p_pincode'] !=''){
+              unset($_SESSION['reg_p_pincode']);
+       }
+       if($_SESSION['reg_c_address1'] !=''){
+              unset($_SESSION['reg_c_address1']);
+       }if($_SESSION['reg_c_address2'] !=''){
+              unset($_SESSION['reg_c_address2']);
+       }
+       if($_SESSION['reg_c_state'] !=''){
+              unset($_SESSION['reg_c_state']);
+       }
+       if($_SESSION['reg_c_district'] !=''){
+              unset($_SESSION['reg_c_district']);
+       }
+       if($_SESSION['reg_c_tehsil'] !=''){
+              unset($_SESSION['reg_c_tehsil']);
+       }
+       if($_SESSION['reg_c_village'] !=''){
+              unset($_SESSION['reg_c_village']);
+       }
+       if($_SESSION['reg_c_pincode'] !=''){
+              unset($_SESSION['reg_c_pincode']);
+       }
+       if($_SESSION['reg_i-wish'] !=''){
+              unset($_SESSION['reg_i-wish']);
+       }
+       if($_SESSION['reg_declare'] !=''){
+              unset($_SESSION['reg_declare']);
+       }
+	   
+	    if($_SESSION['reg_ic_indian_citz'] !=''){
+              unset($_SESSION['reg_ic_indian_citz']);
+       } if($_SESSION['reg_ic_uw'] !=''){
+              unset($_SESSION['reg_ic_uw']);
+       } if($_SESSION['reg_uw_criteria_0'] !=''){
+              unset($_SESSION['reg_uw_criteria_0']);
+       } if($_SESSION['reg_uw_criteria_1'] !=''){
+              unset($_SESSION['reg_uw_criteria_1']);
+       } if($_SESSION['reg_uw_criteria_2'] !=''){
+              unset($_SESSION['reg_uw_criteria_2']);
+       } if($_SESSION['reg_adhar-detail'] !=''){
+              unset($_SESSION['reg_adhar-detail']);
+       }
+
+		if($_SESSION['reg_aadhaar'] !=''){
+              unset($_SESSION['reg_aadhaar']);
+       }if($_SESSION['reg_e_id'] !=''){
+              unset($_SESSION['reg_e_id']);
+       }if($_SESSION['reg_auth_ministry'] !=''){
+              unset($_SESSION['reg_auth_ministry']);
+       }if($_SESSION['reg_furnish_adhar'] !=''){
+              unset($_SESSION['reg_furnish_adhar']);
+       }if($_SESSION['reg_pay_30'] !=''){
+              unset($_SESSION['reg_pay_30']);
+       }if($_SESSION['reg_mobile_no'] !=''){
+              unset($_SESSION['reg_mobile_no']);
+       }if($_SESSION['reg_bank_name'] !=''){
+              unset($_SESSION['reg_bank_name']);
+       }if($_SESSION['reg_bank_account_no'] !=''){
+              unset($_SESSION['reg_bank_account_no']);
+       }if($_SESSION['reg_bank_branch'] !=''){
+              unset($_SESSION['reg_bank_branch']);
+       }if($_SESSION['reg_primary_occupation_code'] !=''){
+              unset($_SESSION['reg_primary_occupation_code']);
+       }if($_SESSION['reg_secondary_occupation_code'] !=''){
+              unset($_SESSION['reg_secondary_occupation_code']);
+       }
+       
+}
+
+function preview_labour_register($form, &$form_state){
+         $_SESSION['flag'] = 0;
+         //drupal_set_message('<pre>'.print_r($form_state['values'],true).'</pre>');
+        $_SESSION['reg_name'] = $form_state['values']['name'];
+	$_SESSION['reg_fathername'] = $form_state['values']['fathername'];
+	$_SESSION['reg_mothername'] = $form_state['values']['mothername'];
+	$_SESSION['reg_dob'] = $form_state['values']['dob'];
+	$_SESSION['reg_gender'] = $form_state['values']['genderid'];
+	
+	$_SESSION['reg_p_address1'] = $form_state['values']['p_address1'];
+	$_SESSION['reg_p_address2'] = $form_state['values']['p_address2'];
+	$_SESSION['reg_p_state'] = $form_state['values']['state_permanent'];
+	$_SESSION['reg_p_district'] = $form_state['values']['district_permanent'];
+	$_SESSION['reg_p_tehsil'] = $form_state['values']['tehsil_permanent'];
+	$_SESSION['reg_p_village'] = $form_state['values']['village_permanent'];
+	$_SESSION['reg_p_pincode'] = $form_state['values']['p_pincode'];
+	
+	$_SESSION['reg_c_address1'] = $form_state['values']['c_address1'];
+	$_SESSION['reg_c_address2'] = $form_state['values']['c_address2'];
+	$_SESSION['reg_c_state'] = $form_state['values']['state_p'];
+	$_SESSION['reg_c_district'] = $form_state['values']['district_p'];
+	$_SESSION['reg_c_tehsil'] = $form_state['values']['tehsil_p'];
+	$_SESSION['reg_c_village'] = $form_state['values']['village_p'];
+	$_SESSION['reg_c_pincode'] = $form_state['values']['c_pincode'];
+	
+	$_SESSION['reg_i-wish'] = $form_state['values']['i-wish'];
+	$_SESSION['reg_declare'] = $form_state['values']['declare'];
+	$_SESSION['reg_ic_indian_citz'] = $form_state['values']['ic_indian_citz'];
+	$_SESSION['reg_ic_uw'] = $form_state['values']['ic_uw'];
+	$_SESSION['reg_uw_criteria_0'] = $form_state['values']['uw_criteria_0'];
+	$_SESSION['reg_uw_criteria_1'] = $form_state['values']['uw_criteria_1'];
+	$_SESSION['reg_uw_criteria_2'] = $form_state['values']['uw_criteria_2'];
+	$_SESSION['reg_adhar-detail'] = $form_state['values']['adhar-detail'];
+	
+	$_SESSION['reg_aadhaar'] = $form_state['values']['aadhaar'];
+	$_SESSION['reg_e_id'] = $form_state['values']['e_id'];
+	
+	$_SESSION['reg_auth_ministry'] = $form_state['values']['auth_ministry'];
+	$_SESSION['reg_furnish_adhar'] = $form_state['values']['furnish_adhar'];
+	$_SESSION['reg_pay_30'] = $form_state['values']['pay_30'];
+	$_SESSION['reg_mobile_no'] = $form_state['values']['mobile_no'];
+	$_SESSION['reg_bank_name'] = $form_state['values']['bank_name'];
+	$_SESSION['reg_bank_account_no'] = $form_state['values']['bank_account_no'];
+	$_SESSION['reg_bank_branch'] = $form_state['values']['bank_branch'];
+	$_SESSION['reg_primary_occupation_code'] = $form_state['values']['primary_occupation_code'];
+	$_SESSION['reg_secondary_occupation_code'] = $form_state['values']['secondary_occupation_code'];
+
+	
+}
+
+function labour_register_submit($form, &$form_state) {
+
+  // echo "<pre>";
+  // print_r($form_state['values']);
+  // print_r($_GET);
+  // die('dddd');
+    
+    $_SESSION['flag'] = 1;
+    //drupal_set_message('<pre>'.print_r($form_state['values'],true).'</pre>');
+    $chk_sch = 'registration';
+    
+//try {
+        
+        if($form_state['values']['name'] != ''){
+        $result = db_insert($chk_sch.'.new_registration')
+                  ->fields(array(
+                      'house_hold_id'=> ($_GET['house_h'] != '') ? $_GET['house_h'] : '',
+                      'name' => $form_state['values']['name'],
+                      'fathername' => $form_state['values']['fathername'],
+                      'mothername' => $form_state['values']['mothername'],
+                      'dob' => $form_state['values']['dob'],
+                      'genderid' => $form_state['values']['genderid'],
+                      'p_address1' => $form_state['values']['p_address1'],
+                      'p_address2' => $form_state['values']['p_address2'],
+                      'p_state' => $form_state['values']['state_permanent'],
+                      'p_district' => $form_state['values']['district_permanent'],
+                      'p_tehsil' => $form_state['values']['tehsil_permanent'],
+                      'p_villagetown' => $form_state['values']['village_permanent'],
+                      'p_pincode' => $form_state['values']['p_pincode'],                      
+                      'c_address1' => $form_state['values']['c_address1'],
+                      'c_address2' => $form_state['values']['c_address2'],
+                      'c_state' => $form_state['values']['state_p'],
+                      'c_district' => $form_state['values']['district_p'],
+                      'c_tehsil' => $form_state['values']['tehsil_p'],
+                      'c_villagetown' => $form_state['values']['village_p'],
+                      'c_pincode' => $form_state['values']['c_pincode'],                      
+                      'aadhaar' => $form_state['values']['c_pincode'],
+                      'e_id' => $form_state['values']['e_id'],
+                      'mobile_no' => $form_state['values']['c_pincode'],
+                      'bank_name' => $form_state['values']['bank_name'],
+                      'bank_account_no' => $form_state['values']['bank_account_no'],
+                      'bank_branch' => $form_state['values']['bank_branch'],
+                      'primary_occupation_code' => $form_state['values']['primary_occupation_code'],
+                      'secondary_occupation_code' => $form_state['values']['secondary_occupation_code'],                      
+                      'indian_ctzn' => $form_state['values']['ic_indian_citz'],
+                      'uw_worker' => $form_state['values']['ic_uw'],
+                      'epfo' => $form_state['values']['uw_criteria_0'],                      
+                      'lessthan_10000' => $form_state['values']['uw_criteria_1'],
+                      'age_18' => $form_state['values']['uw_criteria_2'],                      
+                      'authorize_minis' => $form_state['values']['auth_ministry'],
+                      'furnish_adhar' => $form_state['values']['furnish_adhar'],
+                      'pay_fee' => $form_state['values']['pay_30'],
+
+                  ))
+                ->execute();
+
+            if($result){
+        drupal_set_message(t('New Registration has been completed.'));
+    }    
+        }
+
+ if (!empty($_GET['house_h'])) {
+        register_reset();
+
+          drupal_goto('family/'.$_GET['house_h'].'/uw-listing');
+
+                }
+
+//} 
+// catch (PDOException $e) {
+//     form_set_error('',t('Please Correct your data, Data is invalid'));
+// }
+
+
+    register_reset();
+    if($result){
+        drupal_set_message(t('New Registration has been completed.'));
+    }else {
+        //form_set
+    }
+    
+}
+
+function labour_register_validate($form, &$form_state){
+
+    $p_pincode = $form_state['values']['p_pincode'];
+    $c_pincode = $form_state['values']['c_pincode'];
+    $name = $form_state['values']['name'];
+    $fathername = $form_state['values']['fathername'];
+    $mothername = $form_state['values']['mothername'];
+    $p_address1 = $form_state['values']['p_address1'];
+    $p_address2 = $form_state['values']['p_address2'];
+    $aadhaar = $form_state['values']['aadhaar'];
+    $e_id = $form_state['values']['e_id'];
+    $mobile_no = $form_state['values']['mobile_no'];
+    $bank_name = $form_state['values']['bank_name'];
+    $bank_account_no = $form_state['values']['bank_account_no'];
+    $bank_branch = $form_state['values']['bank_branch'];
+     $dob   = $form_state['values']['dob'];
+   
+  $age = GetAge($dob);
+
+     custom_valdiation_name($name, 'Full Name');
+     custom_valdiation_name($fathername, 'Father Name');
+     custom_valdiation_name($mothername, 'Mother Name');
+    custom_valdiation_address($p_address1);
+    custom_valdiation_address($p_address2);
+    custom_valdiation_aadhaar($aadhaar);
+    custom_valdiation_eid($e_id);
+    custom_valdiation_mobile($mobile_no);
+    custom_valdiation_bank_name($bank_name);
+    custom_valdiation_ac($bank_account_no);
+    custom_valdiation_bank_name($bank_branch);
+
+    if($age < 18){
+
+        form_set_error('p_pincode',t('To register as un organised worker need to be 18+'));
+
+    }
+
+
+
+    
+    if(strlen($p_pincode) >6){
+        form_set_error('p_pincode',t('Pincode should be 6 Digits'));
+    }
+    
+    if(strlen($c_pincode) >6){
+        form_set_error('c_pincode',t('Pincode should be 6 Digits'));
+    }
+
+
+}
+
+function GetAge($dob) 
+{ 
+        $dob=explode("-",$dob); 
+        $curMonth = date("m");
+        $curDay = date("j");
+        $curYear = date("Y");
+        $age = $curYear - $dob[0]; 
+        if($curMonth<$dob[1] || ($curMonth==$dob[1] && $curDay<$dob[2])) 
+                $age--; 
+        return $age; 
+}

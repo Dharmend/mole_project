@@ -1,0 +1,487 @@
+<?php
+function create_agency_user_form_alter(&$form, &$form_state, $form_id) {
+        //drupal_set_message(''.$form_id.'');
+	 $data = node_load(arg(1));
+
+	 $state_agency = $data->field_state_agency['und'][0]['value'];
+	 $district_agency = $data->field_district_agency['und'][0]['value'];
+	 //drupal_set_message('<pre>'.print_r($data,TRUE).'</pre>');
+        
+  if($form_id == "agency_node_form"){
+     if(arg(2)!='edit'){
+
+    $form['field_password1'] = array(
+            '#type' => 'password',
+             '#title' => t('Password'),
+             '#required' => TRUE,
+             '#weight' => 39,
+        );
+    $form['field_confirm_password2'] = array(
+            '#type' => 'password',
+              '#title' => t('Confirm Password'),
+              '#required' => TRUE,
+              '#weight' => 40,
+        );
+  }
+       $form['#validate'][] = 'validatePassword';
+
+       if(arg(2)=='edit'){
+
+        $state_list = _get_location('state');        
+        $state_selected = isset($form_state['values']['state_agency']) ? $form_state['values']['state_agency'] : $state_agency;
+    
+        }else{
+                $state_list = _get_location('state');        
+  		$state_selected = isset($form_state['values']['state_agency']) ? $form_state['values']['state_agency'] : key($state_list);
+    
+        }
+
+  //  $form['agency-region']['state_agency'] = array(
+          $form['state_agency'] = array(
+        '#title' => 'State',
+        '#type' => 'select',
+        '#options' => $state_list,
+        '#default_value' => $state_selected,
+        '#weight' => 47, 
+
+        '#required' => TRUE,
+        '#ajax' => array(
+            'callback' => 'ajax_callback_state_agency',
+            'wrapper' => 'wrapper_state_agency',
+            
+        ),
+        
+    );
+   if(arg(2)=='edit'){
+
+   	$district_list = _get_location('district',$state_selected);
+    $district_selected = isset($form_state['values']['district_agency']) ? $form_state['values']['district_agency'] : key($district_list);
+
+}else{
+        $district_list = _get_location('district',$state_selected);
+    $district_selected = isset($form_state['values']['district_agency']) ? $form_state['values']['district_agency'] : key($district_list);
+}
+    //$form['agency-region']['district_agency'] = array(
+    $form['district_agency'] = array(
+        '#title' => 'District',
+        '#type' => 'select',
+        '#options' => $district_list,
+        '#default_value' => $district_agency,
+        //'#multiple' => TRUE,
+         '#weight' => 48, 
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_state_agency">',
+        '#suffix' => '</div>',
+    );
+    }
+    
+    // If form id is create card printing agency
+    
+    if($form_id == "card_printing_agency_node_form"){
+        
+                            if(arg(2)!='edit'){
+
+                                    $form['field_password1'] = array(
+                                            '#type' => 'password',
+                                             '#title' => t('Password'),
+                                             '#required' => TRUE,
+                                             '#weight' => 39,
+                                        );
+                                    $form['field_confirm_password2'] = array(
+                                            '#type' => 'password',
+                                              '#title' => t('Confirm Password'),
+                                              '#required' => TRUE,
+                                              '#weight' => 40,
+                                        );
+                         }
+                              $form['#validate'][] = 'validatePassword';
+
+                       //////////////////
+
+
+                       if(arg(2)=='edit'){
+                           
+                           $prev_node = node_load(arg(1));
+                           $form['#node'] = $prev_node;
+
+                           $state_list = _get_location('state');        
+                           $state_selected = isset($form_state['values']['state_agency']) ? $form_state['values']['state_agency'] : $state_agency;
+
+                       }else{
+                               $state_list = _get_location('state');        
+                               $state_selected = isset($form_state['values']['state_agency']) ? $form_state['values']['state_agency'] : key($state_list);
+
+                            }
+
+                         //  $form['agency-region']['state_agency'] = array(
+                             $form['state_agency'] = array(
+                               '#title' => 'State',
+                               '#type' => 'select',
+                               '#options' => $state_list,
+                               '#default_value' => $state_selected,
+                               '#weight' => 47, 
+
+                               '#required' => TRUE,
+                               '#ajax' => array(
+                                   'callback' => 'ajax_callback_state_agency',
+                                   'wrapper' => 'wrapper_state_agency',
+
+                               ),
+
+                           );
+                          if(arg(2)=='edit'){
+
+                               $district_list = _get_location('district',$state_selected);
+                               $district_selected = isset($form_state['values']['district_agency']) ? $form_state['values']['district_agency'] : key($district_list);
+
+                       }else{
+                               $district_list = _get_location('district',$state_selected);
+                           $district_selected = isset($form_state['values']['district_agency']) ? $form_state['values']['district_agency'] : key($district_list);
+                       }
+                           //$form['agency-region']['district_agency'] = array(
+                                   $form['district_agency'] = array(
+                                       '#title' => 'District',
+                                       '#type' => 'select',
+                                       '#options' => $district_list,
+                                       '#default_value' => $district_agency,
+                                       //'#multiple' => TRUE,
+                                        '#weight' => 48, 
+                                       '#required' => TRUE,
+                                       '#prefix' => '<div id="wrapper_state_agency">',
+                                       '#suffix' => '</div>',
+                                   );
+    }
+    // End of card printing Agency
+        if($form_id == 'user_profile_form'){
+          if((str_replace('destination=', '', $_SERVER['QUERY_STRING'])) =='reset-password'){
+
+            $form['field_designation']['#access'] = FALSE;
+            $form['field_mobile_no']['#access'] = FALSE;
+            $form['field_name']['#access'] = FALSE;
+            $form['picture']['#access'] = FALSE;
+            $form['field_office_address_2']['#access'] = FALSE;
+            $form['field_office_address_1']['#access'] = FALSE;
+        }
+        }
+}
+
+function validatePassword($form, &$form_state){
+ 
+  $agency_name = $form_state['values']['title'];
+
+  $contact_person = $form_state['values']['field_contact_person']['und'][0]['value'];
+
+    $address1 = $form_state['values']['field_address_1']['und'][0]['value'];
+    $address2 = $form_state['values']['field_address_2']['und'][0]['value'];
+
+
+  $mobile_no = $form_state['values']['field_mobile_number']['und'][0]['value'];
+  $landline_no = $form_state['values']['field_landline_no']['und'][0]['value'];
+
+        $username = $form_state['values']['field_username']['und'][0]['value'];
+	$password = $form_state['values']['field_password1'];
+	$ConfirmPass = $form_state['values']['field_confirm_password2'];
+
+   custom_valdiation_name($agency_name , 'Agency Name'); 
+   custom_valdiation_mobile($mobile_no);
+   custom_valdiation_name($contact_person , 'Contact Person'); 
+   custom_valdiation_address($address1);  
+   custom_valdiation_address($address2);  
+
+   
+
+	 if (!empty($landline_no)) {	 	
+	 
+	     if ((!ctype_digit($landline_no))) {
+
+	    form_set_error('field_landline_no',t('landline number must be numeric'));
+
+	     }
+	 }
+
+	 if ( preg_match('/\s/',$username) ){
+
+	    form_set_error('field_username',t('username contain space please remove white space'));
+
+	}
+	 if($password != $ConfirmPass){
+		      
+		form_set_error('field_password1',t('Password and confirm password are not same'));
+
+	}
+
+	
+
+}
+
+
+function create_agency_user_node_presave($node){
+    if(arg(2)!='edit'){
+
+
+      if((arg(0)=='node') && (arg(1)=='add') && (arg(2)=='agency')){
+
+	if($node->type == 'agency'){
+		
+                        $agency_name = $node->title;
+                        $mobile = $node->field_mobile_number['und'][0]['value'];
+                        $username = $node->field_username['und'][0]['value'];
+
+                        $pass = $node->field_password1;
+                        $email = $node->field_email_id['und'][0]['email'];
+                        $add1 = $node->field_address_1['und'][0]['value'];
+                        $add2 = $node->field_address_2['und'][0]['value'];
+
+
+                  $password = user_password(8);
+
+                  //set up the user fields
+                  $fields = array(
+                    'name' => $username,
+                    'mail' => $email,
+                    'pass' => $pass,
+                    'status' => 1,
+                    'field_name_value' => array(LANGUAGE_NONE => array(array('value' => $agency_name))), 
+                    'access' => REQUEST_TIME,  
+                    'roles' => array(
+                      DRUPAL_AUTHENTICATED_RID => 'authenticated user',
+                          11 => 'Agency',
+                    ),
+                  );
+
+                  $account = user_save('', $fields);
+
+                  db_insert('field_data_field_name')
+                            ->fields(array(
+                            'entity_type' => 'user',
+                            'bundle' => 'user',
+                            'deleted' => 0,
+                            'entity_id' => $account->uid,
+                            'language' => 'und',
+                            'delta' => 0,
+                            'field_name_value' => $agency_name,
+                            ))
+                            ->execute();
+
+                  $account->password = $fields['pass'];
+
+                  // Send the e-mail through the user module.
+                  drupal_mail('user', 'register_no_approval_required', $email, NULL, array('account' => $account), 'noreply@example.com');
+	
+	}
+} 
+    if((arg(0)=='node') && (arg(1)=='add') && (arg(2) == 'card-printing-agency')){
+
+        if($node->type == 'card_printing_agency'){
+		
+                        $agency_name = $node->title;
+                        $mobile = $node->field_mobile_number['und'][0]['value'];
+                        $username = $node->field_username['und'][0]['value'];
+
+                        $pass = $node->field_password1;
+                        $email = $node->field_email_id['und'][0]['email'];
+                       
+                        $password = user_password(8);
+
+                  //set up the user fields
+                  $fields = array(
+                    'name' => $agency_name,
+                    'mail' => $email,
+                    'pass' => $pass,
+                    'status' => 1,
+                    'field_name_value' => array(LANGUAGE_NONE => array(array('value' => $agency_name))), 
+                    'access' => REQUEST_TIME,  
+                    'roles' => array(
+                      DRUPAL_AUTHENTICATED_RID => 'authenticated user',
+                          13 => 'card printing agency',
+                    ),
+                  );
+
+                  $account = user_save('', $fields);
+                  
+                  db_insert('field_data_field_name')
+                            ->fields(array(
+                            'entity_type' => 'user',
+                            'bundle' => 'user',
+                            'deleted' => 0,
+                            'entity_id' => $account->uid,
+                            'language' => 'und',
+                            'delta' => 0,
+                            'field_name_value' => $agency_name,
+                            ))
+                            ->execute();
+                  
+                  
+                  $account->password = $fields['pass'];
+
+                  // Send the e-mail through the user module.
+                  drupal_mail('user', 'register_no_approval_required', $email, NULL, array('account' => $account), 'noreply@example..com');
+	
+	}
+}
+}
+}
+
+function create_agency_user_node_update($node){
+    //drupal_set_message('<pre>'.print_r($node,TRUE).'<pre>');
+    
+//    $new_state = $node->state_agency;
+//    $new_district = $node->district_agency;
+//    
+//    $prev_node = node_load($node->nid);
+//    $prev_node->field_state_agency['und'][0]['value'] = $new_state;
+//    $prev_node->field_district_agency['und'][0]['value'] = $new_district;
+//    node_save($prev_node);
+    
+    //drupal_set_message('<pre>'.print_r($prev_node,TRUE).'<pre>');
+}
+
+function ajax_callback_state_agency($form, $form_state){
+      //  $form_field_district_de = $form['agency-region']['district_agency'];
+        $form_field_district_de = $form['district_agency'];
+
+       return array(
+           '#type' => 'ajax',
+           '#commands' => array(
+           ajax_command_replace("#wrapper_state_agency", render($form_field_district_de)),
+                  
+
+           
+           )
+   );
+    }
+
+
+
+function create_agency_user_node_insert($node) {
+	
+if($node->type == 'agency'){
+    
+       // drupal_set_message('Thanks <pre> '.print_r($node, TRUE).'');
+    
+	$nid = $node->nid;
+	$state_value = $node->state_agency;
+	$nodes = node_load($nid);
+        
+$options = array('entity_type'=>'node',
+                     'bundle'=>'agency',
+                     'deleted' =>'0',
+                     'entity_id'=>$nid,
+                     'revision_id'=>$nid,
+                     'language' =>'und',
+                     'delta' =>'0',
+                     'field_state_agency_value'=>$state_value,
+                     
+                     );
+	 $query_state=db_insert('field_data_field_state_agency')
+                    ->fields($options)
+                    ->execute();
+
+        $query_state_revision = db_insert('field_revision_field_state_agency')
+        ->fields($options)
+        ->execute();
+
+           $district = $node->district_agency;
+
+      $options_dis = array('entity_type'=>'node',
+                     'bundle'=>'agency',
+                     'deleted' =>'0',
+                     'entity_id'=>$nid,
+                     'revision_id'=>$nid,
+                     'language' =>'und',
+                     'delta' =>'0',
+                     'field_district_agency_value'=>$district,
+                   );
+	 $query_district = db_insert('field_data_field_district_agency')
+                    ->fields($options_dis)
+                    ->execute();
+
+        $query_district_revision = db_insert('field_revision_field_district_agency')
+        ->fields($options_dis)
+        ->execute();
+        $i++;
+
+
+}
+
+    if($node->type == 'card_printing_agency'){
+      //drupal_set_message('Thanks <pre> '.print_r($node, TRUE).'');
+      if((arg(0)=='node') && (arg(1)=='add') && (arg(2) == 'card-printing-agency')){    
+       $cpa_state = $node->state_agency;
+       $cpa_district = $node->district_agency;
+       
+       $nid = $node->nid;
+        
+$options = array('entity_type'=>'node',
+                     'bundle'=>'card_printing_agency',
+                     'deleted' =>'0',
+                     'entity_id' => $nid,
+                     'revision_id' => $nid,
+                     'language' => 'und',
+                     'delta' => '0',
+                     'field_state_agency_value' => $cpa_state,
+                );
+
+	 $query_state=db_insert('field_data_field_state_agency')
+                    ->fields($options)
+                    ->execute();
+
+        $query_state_revision = db_insert('field_revision_field_state_agency')
+        ->fields($options)
+        ->execute();
+
+       //$district = $node->district_agency;
+
+      $options_dis = array('entity_type'=>'node',
+                     'bundle' => 'card_printing_agency',
+                     'deleted' => '0',
+                     'entity_id' => $nid,
+                     'revision_id' => $nid,
+                     'language' => 'und',
+                     'delta' => '0',
+                     'field_district_agency_value' => $cpa_district,
+                   );
+	 $query_district = db_insert('field_data_field_district_agency')
+                    ->fields($options_dis)
+                    ->execute();
+
+        $query_district_revision = db_insert('field_revision_field_district_agency')
+        ->fields($options_dis)
+        ->execute();
+        
+      }     
+        
+    }
+
+}
+
+
+function create_agency_user_cron(){
+    global $user;
+        
+      $query = db_select('node' ,'n')
+              ->fields('n' ,array('nid'))
+              ->condition('type','agency' ,'=')
+              ->execute();
+        while($result = $query->fetchAssoc()){
+               $node = node_load($result['nid']);
+               $tenure_for_empanelment_from =  $node->field_tenure_for_empanelment_fro['und'][0]['value'];
+               $tenure_for_empanelment_to =  $node->field_tenure_for_empanelment_fro['und'][0]['value2'];
+               $expire_date = str_replace(" 00:00:00","",$tenure_for_empanelment_to);
+                
+                 if($expire_date == date('Y-m-d')){
+                         $email =  $node->field_email_id['und'][0]['email'];
+                         $userdata = user_load_by_mail($email);
+                         $uid = $userdata->uid;
+                          db_update('users')
+                            ->fields(array('status' => 0))
+                            ->condition('uid', $uid , "=")
+                            ->execute();
+                  }
+        
+        }
+
+}
+
+
+

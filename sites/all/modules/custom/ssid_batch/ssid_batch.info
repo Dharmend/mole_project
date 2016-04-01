@@ -1,0 +1,5 @@
+name = Show ssid generated batch
+description = Data based on ssid batch
+core = 7.x
+package = 'custom'
+

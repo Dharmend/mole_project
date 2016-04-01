@@ -1,0 +1,177 @@
+<?php
+error_reporting(0);
+function user_form_init(){
+    drupal_add_js('sites/all/modules/custom/user_form/user_form.js');
+}
+
+function user_form_menu() {
+    
+          $items['user_state'] = array(
+          'page callback' => 'user_state_result',
+          'access arguments' => array('access content'),
+        'type' => MENU_CALLBACK,
+        );
+
+        $items['user_district'] = array(
+          'page callback' => 'user_district_result',
+          'access arguments' => array('access content'),
+        'type' => MENU_CALLBACK,
+        );
+
+
+    return $items;
+  }
+
+
+
+
+function user_form_form_alter(&$form, &$form_state, $form_id) {
+
+    if($form_id == 'user_register_form'){
+         drupal_set_title('Create New User');
+
+         global $user;
+         $role = end($user->roles);
+         $user_info = user_load($user->uid);
+         if(($role == 'MOLE') || ($role == 'State') || ($role == 'District')){
+
+                if(($role == 'MOLE')){
+                    $state_list_data = _get_location('state');
+                }
+                if(($role == 'State') || (($role == 'District'))){
+                    $state_value = $user_info->field_state['und'][0]['value'];
+                    $state_list = _get_location('state');
+                    $state_list_data[$state_value] = $state_list[$state_value];
+                }
+
+                $state_selected = isset($form_state['values']['state']) ? $form_state['values']['state'] : key($state_list_data);
+                
+
+                           $form['state'] = array(
+                                '#title' => 'State',
+                                '#type' => 'select',
+                                '#options' => $state_list_data,
+                                '#default_value' => $state_selected,
+                                /*'#ajax' => array(
+                                    'callback' => 'ajax_callback_state',
+                                    'wrapper' => 'wrapper_state',
+                        
+                    ),*/
+                
+            );
+        }
+
+        if(($role == 'State') || ($role == 'District') ){
+            
+        if(($role == 'District')){
+                $district_value = $user_info->field_district['und'][0]['value'];
+                $district_list = _get_location('district',$state_selected);
+                $district_list_data[$district_value] = $district_list[$district_value];
+            }
+
+        if(($role == 'State')){
+            $district_list_data = _get_location('district',$state_selected);
+        }
+
+        $district_selected = isset($form_state['values']['district']) ? $form_state['values']['district'] : key($district_list_data);
+        $form['district'] = array(
+            '#title' => 'District',
+            '#type' => 'select',
+            '#options' => $district_list_data,
+            '#default_value' => $district_selected,
+            '#prefix' => '<div id="wrapper_state">',
+            '#suffix' => '</div>',
+                    
+              );
+        }
+        
+        if(($role == 'District')){
+            $tehsil_list = _get_location('tehsil',$state_selected,$district_selected);
+         
+            $tehsil_selected = isset($form_state['values']['tehsil']) ? $form_state['values']['tehsil'] : key($tehsil_list); 
+            $form['tehsil'] = array(
+                '#title' => 'Tehsil',
+                '#type' => 'select',
+                '#options' => $tehsil_list,
+                '#default_value' => $tehsil_selected,
+                '#prefix' => '<div id="wrapper_tehsil">',
+                '#suffix' => '</div>',
+                
+            );
+        
+        
+        }
+
+         $user_roles = $user->roles;
+     
+         $available_roles = $form['account']['roles']['#options'];
+         
+         $result = array_intersect($user_roles, $available_roles);
+         
+         foreach($result as $key => $value){
+             $current_user_role = $value;
+             $current_user_role_key = $key;         
+         }
+         $tempArr = array();
+         foreach ($available_roles as $key => $value) {        
+            if($current_user_role_key < $key && $value !='administrator'){
+                $tempArr[$key] = $value;
+            }
+        }               
+
+
+         $form['account']['roleassign_roles']['#options'] = $tempArr;
+        
+         $form['account']['roleassign_roles']['#title'] = t('Assigned Role');
+        $form['account']['roleassign_roles']['#type'] = 'checkboxes';  
+    
+    }
+}
+
+
+/**
+* Implementation of hook_user_insert()
+*/
+ 
+function user_form_user_insert(&$edit, $account, $category){
+
+        $uid = $account->uid;
+        $existingUser = user_load($uid);
+        drupal_set_message(''.print_r($account,TRUE).'');
+
+
+
+        $existingUser->field_state['und'][0]['value'] = $account->state;;
+        $existingUser->field_district['und'][0]['value'] = $account->district;
+        $existingUser->field_tehsil['und'][0]['value'] = $account->tehsil;
+
+        user_save((object) array('uid' => $existingUser->uid), (array) $existingUser);
+
+        drupal_set_message(''.print_r($existingUser,TRUE).'');
+
+}
+
+
+/*function user_state_result(){
+    $state_id = $_GET['id'];
+    $district_list = _get_location('district',$state_id);
+     echo '<option value="">--Select District--</option>';
+   foreach ($district_list as $key => $value) {
+            echo '<option value="'.$key.'">'.$value.'</option>';
+  }
+
+}
+function user_district_result(){
+
+    
+    $state_id = $_GET['stateid'];
+    $district_id = $_GET['dist_id'];
+
+    $tehsil_list = _get_location('tehsil',$state_id,$district_id);
+
+     echo '<option value="">--Select Tehsil--</option>';
+   foreach ($tehsil_list as $key => $value) {
+            echo '<option value="'.$key.'">'.$value.'</option>';
+  }
+
+}*/

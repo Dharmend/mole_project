@@ -1,0 +1,101 @@
+<?php
+function xml_ssid_services_resources() {
+  $api = array(
+    'agencydetail' => array(
+      'operations' => array(
+        'create' => array(
+          'help' => 'Retrieves agency detail data',
+          'file' => array('type' => 'inc', 'module' => 'xml_ssid', 'name' => 'xml_ssid'),  
+          'callback' => 'agency_detail_data',//ssid_gen_get_data
+          'access callback' => 'user_access',
+          'access arguments' => array('access content'),
+          'access arguments append' => FALSE,
+          'args' => array(
+            array(
+              'name' => 'agencydetail',
+              'optional' => FALSE,
+              'source' => 'data',
+              'description' => 'Agency detail data',
+              'type' => 'array',
+            ),	
+          ),
+        ),
+      ),
+    ),
+      
+   //Available Batches
+   'batchlist' => array(
+      'operations' => array(
+        'create' => array(
+          'help' => 'Get Available Batch List',
+          'file' => array('type' => 'inc', 'module' => 'xml_ssid', 'name' => 'xml_ssid'),  
+          'callback' => 'get_batch_list',//ssid_gen_get_data
+          'access callback' => 'user_access',
+          'access arguments' => array('access content'),
+          'access arguments append' => FALSE,
+          'args' => array(
+            array(
+              'name' => 'batchlist',
+              'optional' => FALSE,
+              'source' => 'data',
+              'description' => 'Batch Listing data',
+              'type' => 'array',
+            ),	
+          ),
+        ),
+      ),
+    ),
+      
+   //Available Data with in a abatch
+   'getrecordlist' => array(
+      'operations' => array(
+        'create' => array(
+          'help' => 'Get record list List',
+          'file' => array('type' => 'inc', 'module' => 'xml_ssid', 'name' => 'xml_ssid'),  
+          'callback' => 'get_record_list',//ssid_gen_get_data
+          'access callback' => 'user_access',
+          'access arguments' => array('access content'),
+          'access arguments append' => FALSE,
+          'args' => array(
+            array(
+              'name' => 'recordlist',
+              'optional' => FALSE,
+              'source' => 'data',
+              'description' => 'record Listing data',
+              'type' => 'array',
+            ),	
+          ),
+        ),
+      ),
+    ),      
+      
+
+  );
+  return $api;
+}
+
+function xml_ssid_services_authentication_info_alter(&$info, $module){
+    
+    //print_r($info);
+    //print_r($module);
+
+}
+
+function xml_ssid_rest_server_headers_parsed_alter(&$headers) {
+    //print_r($headers);
+}
+
+function xml_ssid_rest_server_execute_errors_alter(&$error_alter_array, $controller, $arguments) {
+    
+    //print_r($error_alter_array);
+    
+//    if($error_alter_array['code'] == '401'){
+//        $error_alter_array['code'] = 9000;
+//        $error_alter_array['header_message'] = 'Unauthorized IP Address';
+//        $error_alter_array['body_data'] = 'Unauthorized IP Address please contact to site administrator';
+//    }
+//    if($error_alter_array['code'] == '1001'){
+//        $error_alter_array['header_message'] = 'Success';
+//      }
+    //print_r($error_alter_array);
+}

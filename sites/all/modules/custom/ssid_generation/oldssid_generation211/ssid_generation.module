@@ -1,0 +1,436 @@
+<?php
+
+function ssid_generation_menu(){
+    $items['ssid-generation'] = array(
+        'title' => 'Generate SSID For the Selected Village Only',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('ssid_generation_person'),
+      //'access arguments' => array('check deduplication'),
+       'access callback' => TRUE,
+     );
+
+      
+    return $items;
+}  
+
+
+function ssid_generation_person($form, &$form_state){
+    
+global $user;
+  $role = end($user->roles);
+  $user_info = user_load($user->uid);
+
+if($_SESSION['rural_urban_value_de'] !=''){
+  $session_rural = $_SESSION['rural_urban_value_de'];
+}
+   
+    
+    $form['rural_urban_de'] = array(
+      '#type' => 'radios',
+      '#title' => t('Select Area'),
+       '#options' => array(
+         'rural' => t('Rural'),
+         'urban' => t('Urban'),
+        ),
+       '#required' => TRUE,
+      '#default_value' => $session_rural, 
+      '#prefix' => '<div id="wrapper_area_choice">',
+        '#suffix' => '</div>',
+
+      );
+
+     
+    if(($role == 'MOLE') ||($user->uid == 1)){
+            $state_list = _get_location('state');
+          }
+          if(($role == 'State') || ($role == 'District') || ($role == 'Tehsil') || ($role == 'Agent')){
+            $state_value = $user_info->field_state['und'][0]['value'];
+            $state_list_data = _get_location('state');
+            $state_list[$state_value] = $state_list_data[$state_value];
+          }
+   $session_state = ($_SESSION['state_value_de'] !='') ? $_SESSION['state_value_de']: key($state_list);
+
+   // $state_list = _get_location('state');
+    
+  $state_selected = isset($form_state['values']['state_de']) ? $form_state['values']['state_de'] : $session_state;
+    //$state_val = _drupal_session_read('state_value');
+    
+    $form['state_de'] = array(
+        '#title' => 'State',
+        '#type' => 'select',
+        '#options' => $state_list,
+        '#default_value' => $state_selected,
+        '#required' => TRUE,
+        '#ajax' => array(
+            'callback' => 'ajax_callback_state_ssid',
+            'wrapper' => 'wrapper_state_ssid',
+            
+        ),
+        
+    );
+
+     if(($role == 'District') || ($role == 'Tehsil') || ($role == 'Agent')){
+          $district_value = $user_info->field_district['und'][0]['value'];
+          $district_list_data = _get_location('district',$state_selected);
+          $district_list[$district_value] = $district_list_data[$district_value];
+           //$session_district = ($_SESSION['district_value_de'] !='') ? $_SESSION['district_value_de']: key($district_list);
+         // $district_selected = isset($form_state['values']['district_de']) ? $form_state['values']['district_de'] : $session_district;
+        }
+
+    if(($role == 'State')||($role == 'MOLE') ||(($user->uid == 1))){
+        $district_list = _get_location('district',$state_selected);
+        //$district_selected = isset($form_state['values']['district_de']) ? $form_state['values']['district_de'] : key($district_list);
+
+    }
+     $session_district = ($_SESSION['district_value_de'] !='') ? $_SESSION['district_value_de']: key($district_list);
+
+
+  //  $district_list = _get_location('district',$state_selected);
+    $district_selected = isset($form_state['values']['district_de']) ? $form_state['values']['district_de'] : $session_district;
+    $form['district_de'] = array(
+        '#title' => 'District',
+        '#type' => 'select',
+        '#options' => $district_list,
+        '#default_value' => $district_selected,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_state_ssid">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_district_ssid',
+            'wrapper' => 'wrapper_tehsil_ssid',
+            
+        ),
+        
+    );
+
+    if(($role == 'Tehsil') || ($role == 'Agent')){
+         $tehsil_value = $user_info->field_tehsil['und'][0]['value'];
+          $tahsil_list_data = _get_location('tehsil',$state_selected,$district_selected);
+          $tehsil_list[$tehsil_value] = $tahsil_list_data[$tehsil_value];
+        }
+
+    if(($role == 'State') || ($role == 'District') || ($role == 'MOLE')||($user->uid == 1)){
+    $tehsil_list = _get_location('tehsil',$state_selected,$district_selected);
+    }
+
+     $session_tehsil = ($_SESSION['tehsil_value_de'] !='') ? $_SESSION['tehsil_value_de']: key($tehsil_list);
+
+    
+  //  $tehsil_list = _get_location('tehsil',$state_selected,$district_selected);
+    $tehsil_selected = isset($form_state['values']['tehsil_de']) ? $form_state['values']['tehsil_de'] : $session_tehsil; 
+    $form['tehsil_de'] = array(
+        '#title' => 'Tehsil',
+        '#type' => 'select',
+        '#options' => $tehsil_list,
+        '#default_value' => $tehsil_selected,
+         '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_tehsil_de">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_tehsil_de',
+            'wrapper' => 'wrapper_village_de',
+            
+        )
+    );
+    
+
+        if(($role == 'Agent')){
+      
+          $village_value = $user_info->field_village['und'][0]['value'];
+          $village_list_data = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+          $village_list[$village_value] = $village_list_data[$village_value];
+        }
+
+    if(($role == 'Tehsil') || ($role == 'State') || ($role == 'District') || ($role == 'MOLE')||($user->uid == 1)){
+    $village_list = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+    }
+     $session_village = ($_SESSION['village_value_de'] !='') ? $_SESSION['village_value_de']: key($village_list);
+
+    //$village_list = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+    $village_selected = isset($form_state['values']['village_de']) ? $form_state['values']['village_de'] : $session_village;
+    $form['village_de'] = array(
+        '#title' => 'Village/Town',
+        '#type' => 'select',
+        '#options' => $village_list,
+        '#default_value' => $village_selected,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_village_de">',
+        '#suffix' => '</div>',
+//        '#ajax' => array(
+//            'callback' => 'ajax_callback_state',
+//            'wrapper' = > 'wrapper_state',
+//            
+//        )
+    );
+     
+ $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+
+ $form['reset'] = array(
+    '#type' => 'submit',
+    '#submit' => array('ssid_reset'),
+    '#value' => t('Reset'),
+  );
+
+ 
+ $fst = 'ssid_generated_data';
+ $sec = $_SESSION['rural_urban_value_de'];
+ $tbl = 'ssid_generated_data';
+ if($session_district == 0){
+  $session_district ='';
+ }
+ if($session_tehsil == 0){
+  $session_tehsil ='';
+ }
+ if($session_village == 0){
+  $session_village ='';
+ }
+
+  if(!empty($sec)){
+
+  $house_hold_id = $session_state.''.$session_district.''.$session_tehsil.''.$session_village;
+ 
+  $header = array('S.N','Total generated SSID','Ready to generate  SSID');
+ 
+
+ $ready_togenerate = db_select("ssid_generated_data".".individual_21", "n")    
+                    ->fields('n',array('name','ahl_tin','slnomember','fathername','name_sl','mothername','occupation','yob','hof','genderid','relation','house_hold_id','mstatusid','educode','ssid')) 
+                    ->condition('n.house_hold_id',db_like($house_hold_id) . '%', 'LIKE') 
+                    ->isNull('n.ssid')
+                    ->execute();
+                          
+                          $ready_to_genrated_ssid = array();
+                          $vill_ahl_tin  = array();
+                          while($ssid_generated  = $ready_togenerate->fetchAssoc()){
+                           
+                           $ready_to_genrated_ssid[] = $ssid_generated;
+
+                          }
+                         $redtgenssid = count($ready_to_genrated_ssid);
+
+
+  $ssidtable_query = db_select("ssid_generated_data".".individual_21", "n")    
+                    ->fields('n',array('name','ahl_tin','slnomember','fathername','name_sl','mothername','occupation','yob','hof','genderid','relation','house_hold_id','mstatusid','educode','ssid')) 
+                    ->condition('n.house_hold_id',db_like($house_hold_id) . '%', 'LIKE') 
+                    ->condition('ssid','','!=')
+                    ->execute();
+                          
+                          $genrated_ssid = array();
+                          $vill_ahl_tin  = array();
+                          while($ssid_generated_data  = $ssidtable_query->fetchAssoc()){
+                           
+                           $generate_ssid[] = $ssid_generated_data;
+                           $vill_ahl_tin[] = $ssid_generated_data['ahl_tin'];
+
+                          }
+                        //variable_set('village-tin',$vill_ahl_tin);
+                        $total_gen_ssid  =  count($generate_ssid);
+  
+                            $rows = array(); 
+                            $i = 1;
+                            $rows[] = array(
+                                    $i, 
+                                    $total_gen_ssid,      
+                                    $redtgenssid,                           
+                                 
+                          );
+                            
+                        $form['table'] = array(
+                            '#theme' => 'table',
+                            '#header' => $header,
+                            '#rows' => $rows,
+                            '#empty' => t('Table has no row!')
+                          );
+                  $form['generate_ssid'] = array(
+                    '#type' => 'submit',
+                    '#submit' => array('generate_ssid_data'),
+                    '#value' => t('Generate SSID'),
+                  );
+          $form['pager'] = array('#markup' => theme('pager'));
+
+ }  
+    return $form;
+    
+}
+
+function ssid_generation_person_submit($form, &$form_state){
+    
+ if($form_state['values']['state_de'] != '0'){
+           $_SESSION['state_value_de'] =  $form_state['values']['state_de'];
+
+       }
+       if ($form_state['values']['district_de'] != '') {
+            $_SESSION['district_value_de'] =  $form_state['values']['district_de'];
+           
+       }
+       if ($form_state['values']['tehsil_de'] != '') {
+                    $_SESSION['tehsil_value_de'] =  $form_state['values']['tehsil_de'];
+
+       }
+       if ($form_state['values']['village_de'] != '') {
+
+                 $_SESSION['village_value_de'] =  $form_state['values']['village_de'];
+
+       }
+        
+        if ($form_state['values']['rural_urban_de'] != '') {
+
+                 $_SESSION['rural_urban_value_de'] =  $form_state['values']['rural_urban_de'];
+
+       }
+}
+
+
+function ssid_calculator($s_r_id){
+    
+       $cal_qry = db_query('select calculateverhoeff('.$s_r_id.')')->fetchField();
+       return $cal_qry;
+}
+
+function ssid_verify($s_v_id){
+    
+    $verify_qry = db_query('select verifyverhoeff('.$s_v_id.')')->fetchField();
+    return $verify_qry;
+}
+
+function generate_ssid_data($form, &$form_state){
+ // print_r($form_state['values']['state_de']);
+ $ready_togenerates = db_select("ssid_generated_data".".individual_21", "n")    
+                    ->fields('n',array('name','ahl_tin','slnomember','fathername','name_sl','mothername','occupation','yob','hof','genderid','relation','house_hold_id','mstatusid','educode','ssid')) 
+                    ->condition('n.house_hold_id',db_like($house_hold_id) . '%', 'LIKE') 
+                    ->isNull('n.ssid')
+                    ->execute();
+                          
+                          $ready_to_genrated_ssid = array();
+                          $vill_ahl_tin  = array();
+                          while($ssid_generated  = $ready_togenerates->fetchAssoc()){
+                           
+                           $ready_to_genrated_ssid[] = $ssid_generated;
+
+                          }
+                         print_r($ready_to_genrated_ssid);
+                         $redtgenssid = count($ready_to_genrated_ssid);
+
+ if ($redtgenssid != 0) {
+  
+$house_hold_id = $form_state['values']['state_de'].''.$form_state['values']['district_de'].''.$form_state['values']['tehsil_de'].''.$form_state['values']['village_de'];
+
+$ssidtable_query = db_select("ssid_generated_data".".individual_21", "n")    
+                    ->fields('n',array('name','ahl_tin','slnomember','fathername','name_sl','mothername','occupation','yob','hof','genderid','relation','house_hold_id','mstatusid','educode')) 
+                    ->condition('n.house_hold_id',db_like($house_hold_id) . '%', 'LIKE')                     
+                    ->execute();
+                          
+                          $vill_ahl_tin  = array();
+                          while($ssid_generated_data  = $ssidtable_query->fetchAssoc()){                           
+                           $vill_ahl_tin[] = $ssid_generated_data['ahl_tin'];
+
+                          }
+                         // print_r($vill_ahl_tin);
+
+            $ssid_prefix = '1';
+            $ssid_zeros = '9';
+          
+            //$ssid_suffix = (!empty(variable_get('last_raw_ssid'))) ? variable_get('last_raw_ssid') : '1';
+            foreach ($vill_ahl_tin as $key => $value) {
+               $leng_ssid = strlen($ssid_suffix);
+        if($leng_ssid >0){                 
+                   $zero_length = $ssid_zeros - ($leng_ssid - 1);                  
+                  $zero_updated = '';
+                  for($i=0; $i<$zero_length; $i++){                      
+                      $zero_updated .= '0';
+                  }
+                  $new_raw_ssid = $ssid_prefix.''.$zero_updated.''.$ssid_suffix;
+                  //$ssid_int = ssid_calculator($new_raw_ssid);
+                  $gen_newssid = $new_raw_ssid.''.$ssid_int;
+                  //$ssid_verify = ssid_verify($gen_newssid);
+                  //variable_set('last_raw_ssid',$new);
+
+                  if($ssid_verify != '0'){
+                      $new = $ssid_suffix + 1;
+                      //variable_set('last_raw_ssid',$new);
+                  }
+            }
+           //end cond
+
+              $num_updated = db_update("ssid_generated_data".".individual_21")
+                             ->fields(array(
+                                'ssid' => $gen_newssid,
+                              ))
+                            ->condition('ahl_tin', $value, '=')
+                            ->execute();
+
+                   $ssid_suffix++;
+             
+             }
+        }
+        else{
+
+              form_set_error('', t('No Records for Generation of SSID'));
+
+        }
+                        
+}
+function ssid_reset(){
+       
+            if($_SESSION['rural_urban_value_de'] !=''){
+              unset($_SESSION['rural_urban_value_de']);
+            }
+
+            if($_SESSION['state_value_de'] !=''){
+              unset($_SESSION['state_value_de']);
+            }
+            if($_SESSION['district_value_de'] !=''){
+              unset($_SESSION['district_value_de']);
+            }
+            if($_SESSION['tehsil_value_de'] !=''){
+               unset($_SESSION['tehsil_value_de']);
+            }
+            if($_SESSION['village_value_de'] !=''){
+              unset($_SESSION['village_value_de']);
+            }
+   
+          
+}
+
+function ajax_callback_state_ssid($form, $form_state){
+        $form_field_district_de = $form['district_de'];
+
+    
+    $form_field_district = $form['district'];
+    $form_field_tehsil = $form['tehsil_de'];
+    $form_field_village = $form['village_de'];
+   
+       return array(
+           '#type' => 'ajax',
+           '#commands' => array(
+           ajax_command_replace("#wrapper_state_ssid", render($form_field_district_de)),
+                      //ajax_command_replace("#wrapper_state_p", render($form_field_district)),
+           //ajax_command_replace("#wrapper_state", render($form_field_district_de)),
+
+           ajax_command_replace("#wrapper_tehsil_de", render($form_field_tehsil)),
+           ajax_command_replace("#wrapper_village_de", render($form_field_village))    
+           )
+   );
+    }
+
+    function ajax_callback_district_ssid($form, $form_state){
+    
+    // return $form['tehsil'];
+    
+     $form_field_tehsil = $form['tehsil_de'];
+     $form_field_village = $form['village_de'];
+    
+       return array(
+           '#type' => 'ajax',
+           '#commands' => array(
+                       ajax_command_replace("#wrapper_tehsil_de", render($form_field_tehsil)),
+
+           ajax_command_replace("#wrapper_tehsil_de", render($form_field_tehsil)),
+           ajax_command_replace("#wrapper_village_de", render($form_field_village))    
+           )
+   );
+    
+   // return $form['tehsil'];
+}

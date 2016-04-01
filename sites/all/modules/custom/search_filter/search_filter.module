@@ -1,0 +1,2825 @@
+<?php
+function rcp_search_init(){
+    drupal_add_js('sites/all/modules/custom/search_filter/search_filter.js');
+}
+
+function search_filter_permission() {
+  return array(
+    'access list-Person content' => array(
+      'title' => t('Access content for the list person module'),
+    ),
+    'access family members' => array(
+      'title' => t('Access content for the whole family'),
+    )
+  );
+}
+
+function search_filter_form_alter(&$form, $form_state, $form_id) {
+  //drupal_set_message(''.$form_id.'');
+  switch ($form_id) {
+    case 'list_persons':
+        drupal_set_title('View/Edit Data');
+      break;
+  }
+}
+
+function search_filter_menu(){
+    $items['list-Person'] = array(
+        //'title' => t('Test'),
+        'title' => 'Labour Data',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('list_persons'),
+        'access arguments' => array('access list-Person content'),
+        'access callback' => TRUE,
+     );
+    $items['labour/%/edit'] = array(
+        'title' => 'Edit-Update Data',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('labour_data'),
+        'access callback' => TRUE,
+     );
+   $items['labour/%/acknowledgement-slip'] = array(
+        'title' => '',
+	'page callback' => 'drupal_get_form',
+        'page arguments' => array('acknowledgement_slip'),
+        'access callback' => TRUE,
+     );
+    $items['labour/%/%/delete'] = array(
+        'title' => 'Labour Delete',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('labour_delete'),
+        'access callback' => TRUE,
+     );
+     $items['family-members/%'] = array(
+        'title' => 'List of Family Members',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('family_members'),
+        'access arguments' => array('access family members'),
+       // 'access callback' => TRUE,
+     );
+    $items['family/%/update-relation'] = array(
+        'title' => 'Update Relation With Head of Family',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('update_relation_family'),
+        'access arguments' => array('access family members'),
+       // 'access callback' => TRUE,
+     );
+    $items['family/%/uw-listing'] = array(
+        'title' => 'List of Unorganised Workers',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('list_uw_workers'),
+        'access arguments' => array('access family members'),
+       // 'access callback' => TRUE,
+     );
+    $items['uw_worker/%/registration'] = array(
+        'title' => 'Update Record Of Individual Person',
+        'page callback' => 'drupal_get_form',
+        'file' => 'search_filter.inc',
+        'file path' => drupal_get_path('module','search_filter'),
+        'page arguments' => array('update_relationship'),
+        'access arguments' => array('access family members'),
+       // 'access callback' => TRUE,
+     );
+     $items['uw/%/self_declation_form'] = array(
+        'title' => 'Registration Cum self Declaration Form',
+        'page callback' => 'drupal_get_form',
+        'file' => 'search_filter.inc',
+        'file path' => drupal_get_path('module','search_filter'),
+        'page arguments' => array('self_declation_form'),
+        'access arguments' => array('access family members'),
+        //'access callback' => TRUE,
+     );
+
+     $items['uw/%/validate_uw'] = array(
+        'title' => 'Validate Un Organised Worker',
+        'page callback' => 'drupal_get_form',
+        'file' => 'search_filter.inc',
+        'file path' => drupal_get_path('module','search_filter'),
+        'page arguments' => array('validate_uw'),
+        'access arguments' => array('access family members'),
+        //'access callback' => TRUE,
+     );
+     
+
+       $items['hof/%/hof_acknowledgement'] = array(
+        'title' => 'Acknowledgement Slip of HoF',
+        'page callback' => 'drupal_get_form',
+        'file' => 'search_filter.inc',
+        'file path' => drupal_get_path('module','search_filter'),
+        'page arguments' => array('hof_acknowledgement'),
+        'access arguments' => array('access family members'),
+        //'access callback' => TRUE,
+     );
+
+      $items['print-self-declartion-ack'] = array(
+        'title' => 'Acknowledgement Slip of HoF',
+        'page callback' => 'drupal_get_form',
+        'file' => 'search_filter.inc',
+        'file path' => drupal_get_path('module','search_filter'),
+        'page arguments' => array('print_self_declartion_ack'),
+        'access arguments' => array('access family members'),
+        //'access callback' => TRUE,
+     );
+       $items['hof/%/file_upload'] = array(
+        'title' => 'Upload Photo',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('go_to_delcation_form'),
+        'access arguments' => array('access family members'),
+       // 'access callback' => TRUE,
+     );
+    return $items;
+}
+
+function labour_data($form,&$form_state){
+  
+  if($_SESSION['rural_urban_value'] != ''){
+      $edit_sch = 'secc_'.$_SESSION['rural_urban_value'];
+  }
+  $data = labour_load($edit_sch,arg(1));
+  $form['read-only'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'Read Only',  
+    '#prefix' => '<div class="read-only-fields">',
+   );
+  $form['read-only']['tin_npr'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['tin_npr'],  
+    '#attributes' => array('readonly' => 'readonly'),  
+    '#title' => t('AHL TIN(SECC)'),
+    '#size' => 30,
+    );
+  $form['read-only']['ahl_tin'] = array(
+    '#type' => 'hidden',
+    '#default_value' => $data['ahl_tin'],  
+    //'#attributes' => array('readonly' => 'readonly'),  
+    //'#title' => t('AHL TIN(SECC)'),
+    '#size' => 30,
+    );
+  $form['read-only']['update_schema'] = array(
+    '#type' => 'hidden',
+    '#default_value' => $edit_sch,  
+    //'#attributes' => array('readonly' => 'readonly'),  
+    //'#title' => t('AHL TIN(SECC)'),
+    '#size' => 30,
+    );
+    
+  $form['read-only']['name'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['name'],  
+    '#attributes' => array('readonly' => 'readonly'),  
+    '#title' => t('Name'),
+    //'#element_validate' => array('custom_valdiation_name'),
+    '#size' => 30,
+    );
+  
+  $form['read-only']['name_sl'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['name_sl'],  
+    '#attributes' => array('readonly' => 'readonly'),  
+    '#title' => t('Name (Regional Lang)'),
+    '#size' => 30,
+    );
+  
+  $form['read-only']['dob'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['dob'],  
+    '#attributes' => array('readonly' => 'readonly'),  
+    '#title' => t('DOB'),
+    '#size' => 10,
+    );
+  $form['read-only']['age'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['age'],  
+    '#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Age'),  
+    '#size' => 5,
+    );
+  $options = array(1 => t('Yes'),0 => t('No'));
+  $form['read-only']['hof'] = array(
+    '#type' => 'radios',
+    '#default_value' => get_hof($data['hof']),  
+    '#attributes' => array('readonly' => 'readonly'),
+    '#options' => $options, 
+    '#title' => t('HoF'),  
+    '#size' => 30,
+    );
+  
+  $form['read-only']['genderid'] = array(
+    '#type' => 'textfield',
+    '#default_value' => get_gender($data['genderid']),  
+    '#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Gender  ID'),  
+    '#size' => 20,
+    );
+  
+  $form['read-only']['mstatusid'] = array(
+    '#type' => 'textfield',
+    '#default_value' => get_marital_status($data['mstatusid']),  
+    '#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Marital Status'),  
+    '#size' => 15,
+    );
+  
+  $form['read-only']['fathername'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['fathername'],  
+    '#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Father Name'),  
+    '#size' => 30,
+    );
+  $form['read-only']['mothername'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['mothername'],  
+    '#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Mother Name'),  
+    '#size' => 30,
+    );
+  $form['read-only']['occupation'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['occupation'],  
+    '#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Occupation'),  
+    '#size' => 30,
+    );
+  
+  $form['read-only']['educode'] = array(
+    '#type' => 'textfield',
+    '#default_value' => get_education($data['educode']),  
+    '#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Education Code'),  
+    '#size' => 30,
+    );
+   $form['read-only']['education_other'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['education_other'],  
+    '#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Education Other'),
+    '#suffix' => '</div>',   
+    '#size' => 30,
+    );
+   $form['markup_data'] = array(
+               '#type' => 'markup',
+               '#markup' => ('Click Here To Edit Above Field'),
+                '#prefix' => '<div class="editseccdata"><span>',
+                 '#suffix' => '</span></div>',  
+               );
+$form['correction_name'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['correction_name'],  
+    //'#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Name'),
+    '#prefix' => '<div class="correction_personal_info">',  
+    '#size' => 30,
+    );
+
+
+   $active = array(1 => t('Yes'), 0 => t('No'));
+   $form['correction_hof'] = array(
+    '#type' => 'radios',
+    '#title' => t('HOF'),
+    '#default_value' => $data['correction_hof'],
+    '#options' => $active,
+    '#size' => 30,
+    
+  );
+   
+   $form['correction_dob'] = array(
+    '#type' => 'date_popup',
+    '#default_value' => $data['correction_dob'],
+      '#date_format' => 'Y-m-d',  
+    //'#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('DOB'),  
+    '#size' => 30,
+      '#date_year_range' => '-90:+3',
+    );
+   
+$marital_arr = array('Select'=>'Select',1 => 'Never married',2 => 'Currently married',3 => 'Widowed', 4 => 'Separated',5 => 'Divorced');
+   
+   $form['correction_marital_status'] = array(
+    '#type' => 'select',
+    '#default_value' => $data['correction_marital_status'],
+    '#options' => $marital_arr,   
+    '#title' => t('Marital Status'),  
+    //'#size' => 30,
+    );
+   
+   $education_array = array('Select' => 'Select',1 => 'Illiterate',2 => 'Literate but below primary',3 => 'Primary', 4 => 'Middle',5 => 'Secondary',6 => 'Higher Secondary',7 => 'Graduate or higher',8 => 'Other(specify)');
+   $form['correction_eductaion'] = array(
+    '#type' => 'select',
+    '#default_value' => $data['correction_eductaion'],  
+    '#title' => t('Education'),  
+    '#options' => $education_array,
+    //'#size' => 30,
+    );
+
+   $form['correction_fathername'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['correction_fathername'],  
+    //'#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Father Name'),  
+    '#size' => 30,
+    );
+
+   $form['correction_mothername'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['correction_mothername'],  
+    //'#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Mother Name'),  
+    '#size' => 30,
+    );
+
+    $form['correction_occupation'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['correction_occupation'],  
+    //'#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Occupation'),  
+    '#size' => 30,
+    '#suffix' => '</div>',
+    );
+  
+   /////////////////////////////////////////////
+
+
+   $form['aadhaar'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['aadhaar'],  
+    //'#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Aadhaar Number'),
+    '#prefix' => '<div class="personal_info">',  
+    '#size' => 30,
+    );
+   $form['e_id'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['e_id'],
+    //'#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('EID (if Aadhar card is not available)'),  
+    '#size' => 30,
+    );
+   
+   $form['bank_account_no'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['bank_account_no'],  
+    //'#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Bank Account No.'),  
+    '#size' => 30,
+    );
+   
+   $form['bank_name'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['bank_name'],  
+    //'#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Bank Name'),  
+    '#size' => 30,
+    );
+   
+   $form['bank_branch'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['bank_branch'],  
+    //'#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Bank Branch'),  
+    '#size' => 30,
+    );
+   $primary_occupation = array(0 => 'Select',1 => 'Farmer',2 => 'Fisherman',3 => 'Own business',4 => 'Govt job','5' => 'Others');
+   $form['primary_occupation_code'] = array(
+    '#type' => 'select',
+    '#default_value' => $data['primary_occupation_code'],
+    '#options' => $primary_occupation,   
+    '#title' => t('Primary Occupation'),  
+    //'#size' => 30,
+    );
+   $secondary_occupation = array(0 => 'Select',1 => 'Tailor',2 => 'Milk vendor',3 => 'Money Lander',4 => 'Others');
+   $form['secondary_occupation_code'] = array(
+    '#type' => 'select',
+    '#default_value' => $data['secondary_occupation_code'],
+    '#options' => $secondary_occupation,  
+    '#title' => t('Secondary Occupation'),
+    '#suffix' => '</div>',   
+    //'#size' => 30,
+    );
+
+   $form['permanent-address'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'Permanent Address',  
+    '#prefix' => '<div class="permanent-address-fields">',
+   );
+   $form['permanent-address']['p_address1'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['p_address1'],  
+    //'#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Permanent Address'),  
+    '#size' => 30,
+    );
+    
+   $form['permanent-address']['p_address2'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['p_address2'],  
+    //'#attributes' => array('readonly' => 'readonly'),
+    '#title' => '&nbsp;',//t('Permanent Address 2'),  
+    '#size' => 30,
+    );
+ 
+ // echo "<pre>";
+ // print_r($data);
+ $p_state =  $data['p_state'];
+   $state_list_permanent = _get_location('state');
+    // $state_list = _get_location('state');
+   if(!empty($p_state)){    
+    $state_selected_permanent = isset($form_state['values']['state_permanent']) ? $form_state['values']['state_permanent'] : $p_state;
+   }else{
+    $state_selected_permanent = isset($form_state['values']['state_permanent']) ? $form_state['values']['state_permanent'] : key($state_list_permanent);
+}
+    //$state_val = _drupal_session_read('state_value');
+    
+    $form['permanent-address']['state_permanent'] = array(
+        '#title' => 'State',
+        '#type' => 'select',
+        '#options' => $state_list_permanent,
+        '#default_value' => $state_selected_permanent,
+        '#required' => TRUE,
+        '#ajax' => array(
+            'callback' => 'ajax_callback_state_permanent',
+            'wrapper' => 'wrapper_state_permanent',
+            
+        ),
+        
+    );
+
+     
+$district_list_permanent = _get_location('district',$state_selected_permanent);
+    
+ $p_district =  $data['p_district'];
+if(!empty($p_district)){
+$district_selected_permanent = isset($form_state['values']['district_permanent']) ? $form_state['values']['district_permanent'] : $p_district;
+}else{
+    $district_selected_permanent = isset($form_state['values']['district_permanent']) ? $form_state['values']['district_permanent'] : key($district_list_permanent);
+}
+  //$district_list = _get_location('district',$state_selected);
+    
+    $form['permanent-address']['district_permanent'] = array(
+        '#title' => 'District',
+        '#type' => 'select',
+        '#options' => $district_list_permanent,
+        '#default_value' => $district_selected_permanent,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_state_permanent">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_district_permanent',
+            'wrapper' => 'wrapper_tehsil_permanent',
+            
+        ),
+        
+    );
+
+   
+ $tehsil_list_permanent = _get_location('tehsil',$state_selected_permanent,$district_selected_permanent);
+   
+ $p_tehsil =  $data['p_tehsil'];
+
+    if(!empty($p_tehsil)){
+ $tehsil_selected_permanent = isset($form_state['values']['tehsil_permanent']) ? $form_state['values']['tehsil_permanent'] : $p_tehsil; 
+    }else{
+    //$tehsil_list = _get_location('tehsil',$state_selected,$district_selected);
+    $tehsil_selected_permanent = isset($form_state['values']['tehsil_permanent']) ? $form_state['values']['tehsil_permanent'] : key($tehsil_list_permanent); 
+}
+    $form['permanent-address']['tehsil_permanent'] = array(
+        '#title' => 'Tehsil',
+        '#type' => 'select',
+        '#options' => $tehsil_list_permanent,
+        '#default_value' => $tehsil_selected_permanent,
+         '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_tehsil_permanent">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_tehsil_permanent',
+            'wrapper' => 'wrapper_village_permanent',
+            
+        )
+    );
+    
+    $village_list_permanent = _get_location('village',$state_selected_permanent,$district_selected_permanent,$tehsil_selected_permanent);
+
+    $p_villagetown = $data['p_villagetown'];
+    if(!empty($p_villagetown)){
+$village_selected_permanent = isset($form_state['values']['village_permanent']) ? $form_state['values']['village_permanent'] : $p_villagetown;
+    }else{
+      $village_selected_permanent = isset($form_state['values']['village_permanent']) ? $form_state['values']['village_permanent'] : key($village_list_permanent);  
+    }
+
+    //$village_list = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+   // $village_selected_permanent = isset($form_state['values']['village_permanent']) ? $form_state['values']['village_permanent'] : key($village_list_permanent);
+    $form['permanent-address']['village_permanent'] = array(
+        '#title' => 'Village/Town',
+        '#type' => 'select',
+        '#options' => $village_list_permanent,
+        '#default_value' => $village_selected_permanent,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_village_permanent">',
+        '#suffix' => '</div>',
+//        '#ajax' => array(
+//            'callback' => 'ajax_callback_state',
+//            'wrapper' = > 'wrapper_state',
+//            
+//        )
+    );
+	
+   $form['permanent-address']['p_pincode'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['p_pincode'],  
+    //'#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('PIN Code'),
+    '#suffix' => '</div>',   
+    '#size' => 30,
+    );
+   
+    $form['current-address'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'Current Address',  
+    '#prefix' => '<div class="current-address-fields">',
+   );
+   $form['current-address']['c_address1'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['c_address1'],  
+    //'#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Current Address'),  
+    '#size' => 30,
+    );
+    
+   $form['current-address']['c_address2'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['c_address2'],  
+    //'#attributes' => array('readonly' => 'readonly'),
+    '#title' => '&nbsp;',//t('Current Address 2'),  
+    '#size' => 30,
+    );
+
+    $state_list_p = _get_location('state');
+    $c_state = $data['c_state'];
+    if(!empty($c_state)){
+          $state_selected_p = isset($form_state['values']['state_p']) ? $form_state['values']['state_p'] : $c_state;
+
+      }else{
+  $state_selected_p = isset($form_state['values']['state_p']) ? $form_state['values']['state_p'] : key($state_list_p);
+}
+    //$state_val = _drupal_session_read('state_value');
+    
+    $form['current-address']['state_p'] = array(
+        '#title' => 'State',
+        '#type' => 'select',
+        '#options' => $state_list_p,
+        '#default_value' => $state_selected_p,
+        '#prefix' => '<div id="wrapper_stated_p">',
+        '#suffix' => '</div>',
+        '#required' => TRUE,
+        '#ajax' => array(
+            'callback' => 'ajax_callback_state_p',
+            'wrapper' => 'wrapper_state_p',
+            
+        ),
+        
+    );
+
+     
+        $district_list_p = _get_location('district',$state_selected_p);
+    
+$c_district = $data['c_district'];
+if(!empty($c_district)){
+    $district_selected_p = isset($form_state['values']['district_p']) ? $form_state['values']['district_p'] : $c_district;
+
+}else{
+        $district_selected_p = isset($form_state['values']['district_p']) ? $form_state['values']['district_p'] : key($district_list_p);
+
+}
+  //  $district_list = _get_location('district',$state_selected);
+    $form['current-address']['district_p'] = array(
+        '#title' => 'District',
+        '#type' => 'select',
+        '#options' => $district_list_p,
+        '#default_value' => $district_selected_p,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_state_p">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_district_p',
+            'wrapper' => 'wrapper_tehsil_p',
+            
+        ),
+        
+    );
+
+   
+    $tehsil_list_p = _get_location('tehsil',$state_selected_p,$district_selected_p);
+   
+
+    $c_tehsil = $data['c_tehsil'];
+if(!empty($c_tehsil)){
+    $tehsil_selected_p = isset($form_state['values']['tehsil_p']) ? $form_state['values']['tehsil_p'] : $c_tehsil; 
+
+}else{
+     $tehsil_selected_p = isset($form_state['values']['tehsil_p']) ? $form_state['values']['tehsil_p'] : key($tehsil_list_p); 
+   
+}
+  //  $tehsil_list = _get_location('tehsil',$state_selected,$district_selected);
+    $form['current-address']['tehsil_p'] = array(
+        '#title' => 'Tehsil',
+        '#type' => 'select',
+        '#options' => $tehsil_list_p,
+        '#default_value' => $tehsil_selected_p,
+         '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_tehsil_p">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_tehsil_p',
+            'wrapper' => 'wrapper_village_p',
+            
+        )
+    );
+    
+    $village_list_p = _get_location('village',$state_selected_p,$district_selected_p,$tehsil_selected_p);
+    
+    $p_villagetown = $data['c_villagetown'];
+    if(!empty($p_villagetown)){
+    $village_selected_p = isset($form_state['values']['village_p']) ? $form_state['values']['village_p'] : $p_villagetown;
+
+    }else{
+          $village_selected_p = isset($form_state['values']['village_p']) ? $form_state['values']['village_p'] : key($village_list_p);
+  
+    }
+    //$village_list = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+    $form['current-address']['village_p'] = array(
+        '#title' => 'Village/Town',
+        '#type' => 'select',
+        '#options' => $village_list_p,
+        '#default_value' => $village_selected_p,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_village_p">',
+        '#suffix' => '</div>',
+//        '#ajax' => array(
+//            'callback' => 'ajax_callback_state',
+//            'wrapper' = > 'wrapper_state',
+//            
+//        )
+    );
+
+
+
+    ////////////////////////////////////////////////////////////////////////////
+
+
+
+
+   $form['current-address']['c_pincode'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $data['c_pincode'],  
+    //'#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('PIN Code'),
+    '#suffix' => '</div>',   
+    '#size' => 30,
+    );
+ 
+ 
+  $form['deleted'] = array(
+      '#type' => 'hidden',
+      '#value' => 0,
+  );
+  
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save'),
+    '#weight' => 100,
+  );
+
+//  $form['actions']['delete'] = array(
+//      '#type' => 'submit',
+//      '#value' => t('Delete'),
+//      '#weight' => 110,
+//      '#submit' => array('delete_single_labour'),
+//  );
+
+  return $form;
+}
+
+function delete_single_labour($form, &$form_state){
+    $path = 'labour/'.$form_state['values']['ahl_tin'].'/'.$form_state['values']['update_schema'].'';
+    $form_state['redirect'] = $path . '/delete';
+    
+}
+
+function labour_delete($form, &$form_state){
+  $data = labour_load(arg(2),arg(1));
+  $sch = arg(2);
+  
+  $form['ahl_tin_id'] = array(
+		'#type' => 'value',
+		'#value' => $data['ahl_tin'],
+	);
+	$form['delete_sch'] = array(
+		'#type' => 'value',
+		'#value' => $sch,
+	);
+  
+    return confirm_form($form,
+    t('Are you sure you want to delete %labour ?', array('%labour' => $data['name'])),
+    'list-Person',
+    t('This action cannot be undone.'),
+    t('Delete'),
+    t('Cancel')
+  );
+}
+
+function labour_delete_submit($form, &$form_state) {
+  $ahl_tin_id = $form_state['values']['ahl_tin_id'];
+  $del_sch = $form_state['values']['delete_sch'];
+  
+  //drupal_set_message(''.$ahl_tin_id.'');
+  $person = labour_load($del_sch,$ahl_tin_id);
+  $del = uv_uowdb_delete($del_sch,$ahl_tin_id);
+  $status = '';
+  $update_flag_secc = 'secc_'.$_SESSION['rural_urban_value'];
+  secc_move_flag_update($update_flag_secc,$ahl_tin_id,$status);
+  
+  if($del){
+  //  drupal_set_message(t('%name has been deleted.', array('%name' => $person['name'])));
+    $form_state['redirect'] = 'list-Person';
+    }else{
+    
+    form_set_error('', t('Unable to delete it please contact to administrator'));
+    }
+}
+
+function labour_data_submit($form, &$form_state){
+   
+    //drupal_set_message('<pre>'.print_r($form_state['values'],TRUE).'</pre>');
+    $up_sc = $form_state['values']['update_schema'];
+    
+    if($form_state['values']['ahl_tin'] != '' && $up_sc != ''){
+        //try{
+            db_update($up_sc.'.individual_'.$_SESSION['state_value'])
+                    ->fields(array(
+                        'aadhaar' => $form_state['values']['aadhaar'],
+                        'e_id' => $form_state['values']['e_id'],
+                        'bank_account_no' => $form_state['values']['bank_account_no'],
+                        'bank_name' => $form_state['values']['bank_name'],
+                        'bank_branch' => $form_state['values']['bank_branch'],
+                        'primary_occupation_code' => $form_state['values']['primary_occupation_code'],
+                        'secondary_occupation_code' => $form_state['values']['secondary_occupation_code'],
+                        'p_address1' => $form_state['values']['p_address1'],
+                        'p_address2' => $form_state['values']['p_address2'],
+                        'p_villagetown' => $form_state['values']['village_permanent'],
+			'p_tehsil' => $form_state['values']['tehsil_permanent'],
+                        'p_district' => $form_state['values']['district_permanent'],
+                        'p_state' => $form_state['values']['state_permanent'],
+                        'p_pincode' => $form_state['values']['p_pincode'],
+                        'c_address1' => $form_state['values']['c_address1'],
+                        'c_address2' => $form_state['values']['c_address2'],
+                        'c_villagetown' => $form_state['values']['village_p'],
+			'c_tehsil' => $form_state['values']['tehsil_p'],
+                        'c_district' => $form_state['values']['district_p'],
+                        'c_state' => $form_state['values']['state_p'],
+                        'c_pincode' => $form_state['values']['c_pincode'],
+                        'correction_name' => $form_state['values']['correction_name'],
+                        'correction_hof' => $form_state['values']['correction_hof'],
+                        'correction_dob' => $form_state['values']['correction_dob'],
+                        'correction_marital_status' => $form_state['values']['correction_marital_status'],
+                        'correction_eductaion' => $form_state['values']['correction_eductaion'],
+                        'correction_fathername' => $form_state['values']['correction_fathername'],
+                        'correction_mothername' => $form_state['values']['correction_mothername'],
+                        'correction_occupation' => $form_state['values']['correction_occupation'],
+                     ))
+                    ->condition('ahl_tin',$form_state['values']['ahl_tin'])
+                ->execute();
+//        } catch (Exception $ex) {
+//                form_set_error('',t('Unexpected Error Please contact to administrator'));
+//        }
+                
+
+    }
+	$slip_arg = $form_state['values']['ahl_tin'];
+	$form_state['redirect'] = 'labour/'.$slip_arg.'/acknowledgement-slip';
+
+	//$form_state['redirect'] = 'list-Person';
+}
+
+function labour_data_validate($form, &$form_state){
+    $p_pincode = $form_state['values']['p_pincode'];
+    $c_pincode = $form_state['values']['c_pincode'];
+    $aadhaar_no = $form_state['values']['aadhaar'];
+    
+    if(strlen($p_pincode) >6){
+        form_set_error('p_pincode',t('Pincode should be 6 Digit only'));
+    }
+    
+    if(strlen($c_pincode) >6){
+        form_set_error('c_pincode',t('Pincode should be 6 Digit only'));
+    }
+//    if(strlen($aadhaar_no) > 12){
+//        form_set_error('aadhaar',t('Aadhar Should be 12 Digit only.'));
+//    }
+
+  custom_valdiation_name($form_state['values']['correction_name'],'Name');  
+  custom_valdiation_name($form_state['values']['correction_fathername'],'Father Name'); 
+  custom_valdiation_name($form_state['values']['correction_mothername'],'Mother Name'); 
+  custom_valdiation_aadhaar($form_state['values']['aadhaar']);
+  custom_valdiation_bank_name($form_state['values']['bank_name']);
+  custom_valdiation_bank_name($form_state['values']['bank_branch']);
+  
+  custom_valdiation_address($form_state['values']['p_address1']);
+  custom_valdiation_address($form_state['values']['p_address2']);
+  custom_valdiation_address($form_state['values']['c_address1']);
+  custom_valdiation_address($form_state['values']['c_address2']);
+  
+  custom_valdiation_pincode();
+  
+}
+
+
+function acknowledgement_slip($form, $form_id, $form_state){
+	if($_SESSION['rural_urban_value'] != ''){
+      $edit_sch = 'secc_'.$_SESSION['rural_urban_value'];
+  }
+	$form = array();
+	$data = labour_load($edit_sch,arg(1));
+	Global $base_url;
+	//echo '<pre>';
+	//print_r($data);
+	//echo '</pre>';
+	$do_reg = time();
+	$doreg = date('Y-m-d',$do_reg);
+	$page_redirect = l('Go to List Person Page', 'list-Person');
+	$options = array(
+	'target_id' => 'my_printable_div',
+	'button_id' => 'my_print_button',
+	'value' => t('Print Record'),
+	'type' => 'link',
+	'custom_css' => path_to_theme().'/css/style.css',
+	);
+		$form['ack-slip'] = array(
+				'#prefix' => '<div class="acknowledgement-slip-fields">',
+				'#suffix' => '</div>'
+			);
+		$form['ack-slip']['logo1'] = array(
+				'#prefix' => '<div class="logo1"><img src="'.$base_url.'/'.path_to_theme().'/images/ashokstambh.gif">',
+				'#suffix' => '</div>'
+			);
+		$form['ack-slip']['goi-mpnssc'] = array(
+				'#prefix' => '<div class="goi-mpnssc">Government of India<br/>Mahatma Phule National Social Security Card',
+				'#suffix' => '</div>'
+			);
+		/*$form['ack-slip']['logo2'] = array(
+				'#prefix' => '<div class="logo2"><img src="'.$base_url.'/'.path_to_theme().'/images/ashokstambh.gif">',
+				'#suffix' => '</div>'
+			);*/
+		$form['ack-slip']['title'] = array(
+				'#prefix' => '<div class="s-title"><strong>Acknowledgement Slip</strong>',
+				'#suffix' => '</div>'
+			);
+		$form['ack-slip']['dor'] = array(
+				'#prefix' => '<div class="dor-aadhar"><div class="dor">'.'<strong>Date of Registration:</strong> '.$doreg,
+				'#suffix' => '</div>',
+			);
+		$form['ack-slip']['aadhar-no'] = array(
+				'#prefix' => '<div class="aadhar-no">'.'<strong>Aadhar Number:</strong> '.$data['aadhaar'],
+				'#suffix' => '</div></div>',
+			);
+		$form['ack-slip']['ref-no'] = array(
+				'#prefix' => '<div class="ref-no">'.'<strong>Reference Number:</strong> '.$data['tin_npr'],
+				'#suffix' => '</div>',
+			);
+                $state_listack = _get_location('state');
+                $pstate_d = $state_listack[$data['p_state']];
+		$form['ack-slip']['state'] = array(
+				'#prefix' => '<div class="state-dist-tehsil"><div class="ack-state">'.'<strong>State:</strong> '.$pstate_d,
+				'#suffix' => '</div>',
+			);
+              $district_list_ack = _get_location('district',$data['p_state']);
+                              $pdistrict_d = $district_list_ack[$data['c_district']];
+
+
+		$form['ack-slip']['district'] = array(
+				'#prefix' => '<div class="ack-district">'.'<strong>District:</strong> '.$pdistrict_d,
+				'#suffix' => '</div>',
+			);
+
+              $tahsil_list_ack = _get_location('tehsil',$data['p_state'],$data['c_district']);
+              $ptehsil_d = $tahsil_list_ack[$data['c_tehsil']];
+
+		$form['ack-slip']['tehsil'] = array(
+				'#prefix' => '<div class="ack-tehsil">'.'<strong>Tehsil:</strong> '.$ptehsil_d,
+				'#suffix' => '</div></div>',
+			);
+		$form['ack-slip']['address'] = array(
+				'#prefix' => '<div class="ack-address">'.'<strong>Address:</strong> '.$data['p_address1'].'<br/>'.$data['p_address2'],
+				'#suffix' => '</div>',
+			);
+		$form['ack-slip']['name'] = array(
+				'#prefix' => '<div class="ack-name">'.'<strong>Name:</strong>'.$data['name'],
+				'#suffix' => '</div>',
+			);
+		$form['ack-slip']['mname'] = array(
+				'#prefix' => '<div class="ack-mname">'.'<strong>Mother Name:</strong> '.$data['mothername'],
+				'#suffix' => '</div>',
+			);
+		$form['ack-slip']['dob/yob'] = array(
+				'#prefix' => '<div class="ack-dob-yob">'.'<strong>DoB/YoB:</strong> '.$data['dob'],
+				'#suffix' => '</div>',
+			);
+		$form['ack-slip']['gender'] = array(
+				'#prefix' => '<div class="ack-gender">'.'<strong>Gender: </strong>'.get_gender($data['genderid']),
+				'#suffix' => '</div>',
+			);
+		$form['ack-slip']['form-redirect'] = array(
+				'#prefix' => '<div class="ack-form-redirect">'.$page_redirect,
+				'#suffix' => '</div>',
+			);
+		$form['ack-slip']['print'] = array(
+		'#prefix' => '<div class="ack-print">'.area_print_form($options),
+		'#suffix' => '</div>'
+		);
+	return $form;
+	}
+
+function list_persons($form, &$form_state){
+    
+  global $user;
+  $role = end($user->roles);
+  $user_info = user_load($user->uid);
+
+ $options = array(
+  'target_id' => 'my_printable_div',
+  'button_id' => 'my_print_button',
+  'value' => t('Print Record'),
+  'type' => 'link',
+  'custom_css' => path_to_theme().'/css/style.css',
+  );
+
+ $ru = $form_state['values']['rural_urban'];
+ if($ru == 'rural'){
+    $ru_val = 'R';
+ } else{
+        $ru_val = 'U';
+
+ }
+
+//print $ru_val;
+ //area_print_form($options);
+
+  //print "aaaaaaa";
+  $print = area_print_form($options);
+
+/*if($_SESSION['village_value'] !='0'){
+  $session_village = $_SESSION['village_value'];
+}*/
+
+if($_SESSION['secc_uw_value'] !=''){
+  $session_sec = $_SESSION['secc_uw_value'];
+}
+if($_SESSION['rural_urban_value'] !=''){
+  $session_rural = $_SESSION['rural_urban_value'];
+}
+
+//Add Code for agency role
+global $user;
+$aa = user_load($user->uid);
+$usermail = $user->mail;
+$querynode = db_select('node', 'n');
+              $querynode->fields('n');
+              $querynode->condition('type','agency','=');
+  $resultn = $querynode->execute();
+  while ($datanode = $resultn->fetchAssoc()) {
+//echo $datanode['nid'];
+
+ $node =  node_load($datanode['nid']);
+   $emailvalue = field_get_items('node', $node, 'field_email_id');
+   foreach ($emailvalue as $key => $email) {
+
+  $agency_detail = array();
+if($email['email'] == $usermail){
+ $agency_detail = array( 'agency_id' =>$datanode['nid'],
+                        'agency_mail' =>$email['email'],
+  ); 
+   }
+  
+} 
+  }
+ $query = db_select('agency_record', 'ag_r');
+              $query->fields('ag_r');
+              $query->condition('ag_r.agency',$agency_detail['agency_id'],'=');
+  $result = $query->execute()->fetchAssoc();
+
+//End code for agency role
+   
+    $form['secc_uw'] = array(
+        '#type' => 'radios',
+        '#title' => t('Select Data Source'),
+        '#options' => array(
+        'secc_' => t('Socio-Economic Caste Census'),//Socio-Economic Caste Census
+        //'uw_' => t('Socio-Economic Caste Census'),//Possible Unorganised Workers based on MoLE Criteria
+        ),
+        '#required' => TRUE,
+        '#default_value' => $session_sec, 
+        '#prefix' => '<div id="wrapper_area_sec_uowd">',
+        '#suffix' => '</div>',
+      );
+    
+    $form['rural_urban'] = array(
+      '#type' => 'radios',
+      '#title' => t('Select Area'),
+       '#options' => array(
+         'rural' => t('Rural'),
+         'urban' => t('Urban'),
+        ),
+       '#required' => TRUE,
+      '#default_value' => $session_rural, 
+      '#prefix' => '<div id="wrapper_area_choice">',
+      '#suffix' => '</div>',
+       '#ajax' => array(
+            'callback' => 'ajax_callback_rural_urban',
+            'wrapper' => 'wrapper_rurul_urban',
+            
+        ),
+
+      );
+
+     $aa = user_load($user->uid);
+ $usermail = $user->mail;
+
+$querynode = db_select('node', 'n');
+              $querynode->fields('n');
+              $querynode->condition('type','agency','=');
+  $resultn = $querynode->execute();
+                  $agency_detail = array();
+
+  while ($datanode = $resultn->fetchAssoc()) {
+
+
+ $node =  node_load($datanode['nid']);
+ $emailvalue = field_get_items('node', $node, 'field_email_id');
+ foreach ($emailvalue as $key => $email) {
+
+            if($email['email'] == $usermail){
+                $agency_detail = array( 'agency_id' =>$datanode['nid'],
+                                       'agency_mail' =>$email['email'],
+                 ); 
+               }  
+        } 
+  }
+ $query = db_select('agency_record', 'ag_r');
+              $query->fields('ag_r');
+              $query->condition('ag_r.agency',$agency_detail['agency_id'],'=');
+  $data = $query->execute();
+
+
+
+    if(($role == 'MOLE') ||($user->uid == 1)){
+            $state_list = _get_location('state','','','','',$ru_val);
+          }
+          if(($role == 'State') || ($role == 'District') || ($role == 'Tehsil') || ($role == 'Agent')){
+            $state_value = $user_info->field_state['und'][0]['value'];
+            $state_list_data = _get_location('state','','','','',$ru_val);
+            $state_list[$state_value] = $state_list_data[$state_value];
+          }
+          // if(($role == 'Agency')){
+          //   $state_value = $result['state'];
+          //   $state_list_data = _get_location('state');
+          //   $state_list[$state_value] = $state_list_data[$state_value];
+          // }
+
+ if(($role == 'Agency')){
+            while($result = $data->fetchAssoc()){
+            $state_value = $result['state'];
+            $state_list_data = _get_location('state','','','','',$ru_val);
+            $state_list['0'] = 'Select';
+            $state_list[$state_value] = $state_list_data[$state_value];
+            }
+            
+          }
+
+   $session_state = ($_SESSION['state_value'] !='') ? $_SESSION['state_value']: key($state_list);
+
+   // $state_list = _get_location('state');
+    
+  $state_selected = isset($form_state['values']['state']) ? $form_state['values']['state'] : $session_state;
+    //$state_val = _drupal_session_read('state_value');
+    
+    $form['state'] = array(
+        '#title' => 'State',
+        '#type' => 'select',
+        '#options' => $state_list,
+        '#default_value' => $state_selected,
+        '#required' => TRUE,
+        '#ajax' => array(
+            'callback' => 'ajax_callback_state',
+            'wrapper' => 'wrapper_state',
+            
+        ),
+        
+    );
+
+     if(($role == 'District') || ($role == 'Tehsil') || ($role == 'Agent')){
+          $district_value = $user_info->field_district['und'][0]['value'];
+          $district_list_data = _get_location('district',$state_selected,'','','',$ru_val);
+          $district_list[$district_value] = $district_list_data[$district_value];
+     }
+
+    if(($role == 'State')||($role == 'MOLE') ||(($user->uid == 1))){
+        $district_list = _get_location('district',$state_selected,'','','',$ru_val);
+    }
+    // if(($role == 'Agency') ){
+    //       $district_value = $result['district'];
+    //       $district_list_data = _get_location('district',$state_selected);
+    //       $district_list[$district_value] = $district_list_data[$district_value];
+    // }
+
+
+     if(($role == 'Agency') && ($state_selected !='0') ){
+      $query = db_select('agency_record', 'ag_r');
+              $query->fields('ag_r');
+              $query->condition('ag_r.agency',$agency_detail['agency_id'],'=');
+              $query->condition('ag_r.state',$state_selected,'=');
+              $datas = $query->execute();
+          //   $result = $data->fetchAssoc();
+                 while ($result  = $datas->fetchAssoc()) {
+                    // echo "<pre>";
+                    //  print_r($result);
+            //drupal_set_message('<pre> Agency record data'.print_r($result,TRUE).'</pre>');
+            $district_value = $result['district'];
+            $district_list_data = _get_location('district',$state_selected,'','','',$ru_val);
+            $district_list['0'] = 'Select';
+            $district_list[$district_value] = $district_list_data[$district_value];
+          }
+        }
+        if($state_selected =='0'){
+                        $district_list['0'] = 'Select';
+
+        }
+        
+     $session_district = ($_SESSION['district_value'] !='') ? $_SESSION['district_value']: key($district_list);
+
+
+  //  $district_list = _get_location('district',$state_selected);
+    $district_selected = isset($form_state['values']['district']) ? $form_state['values']['district'] : $session_district;
+    $form['district'] = array(
+        '#title' => 'District',
+        '#type' => 'select',
+        '#options' => $district_list,
+        '#default_value' => $district_selected,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_state">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_district',
+            'wrapper' => 'wrapper_tehsil',
+            
+        ),
+        
+    );
+
+    if(($role == 'Tehsil') || ($role == 'Agent')){
+          $tehsil_value = $user_info->field_tehsil['und'][0]['value'];
+          $tahsil_list_data = _get_location('tehsil',$state_selected,$district_selected,'','',$ru_val);
+          $tehsil_list[$tehsil_value] = $tahsil_list_data[$tehsil_value];
+        }
+
+    if(($role == 'State') || ($role == 'District') || ($role == 'MOLE')||($user->uid == 1)){
+    $tehsil_list = _get_location('tehsil',$state_selected,$district_selected,'','',$ru_val);
+    }
+    
+    // if( ($role == 'Agency')){
+    
+    // $tehsil_value = $result['tehsil'];
+    // $tehsil_list_data = _get_location('tehsil',$state_selected,$district_selected);
+    // $tehsil_list[$tehsil_value] = $tehsil_list_data[$tehsil_value];
+    // $tehsil_selected = isset($form_state['values']['tehsil']) ? $form_state['values']['tehsil'] : key($tehsil_list); 
+
+    // }
+
+    if( ($role == 'Agency')){
+        
+$queryagency = db_select('agency_record', 'ag_r');
+              $queryagency->fields('ag_r');
+              $queryagency->condition('ag_r.agency',$agency_detail['agency_id'],'=');
+              $queryagency->condition('ag_r.state',$state_selected,'=');
+              $queryagency->condition('ag_r.district',$district_selected,'=');
+
+  $dataqueryagency = $queryagency->execute();
+
+  $tehsil = array();
+            while ( $resulttehsil  = $dataqueryagency->fetchAssoc()) {
+              $tehsil[] = $resulttehsil['tehsil'];
+            }
+                $tehsil_value = $tehsil;
+                $tehsil_list_data = _get_location('tehsil',$state_selected,$district_selected,'','',$ru_val);
+
+                    $tehsil_list = array();
+                    $tehsil_list['0'] = 'Select';
+                  foreach ($tehsil_value as $key => $tehsil_data) {
+                    $tehsil_list[$tehsil_data] = $tehsil_list_data[$tehsil_data];
+                  }
+        //$session_tehsil = ($_SESSION['dow_tehsil_value'] !='') ? $_SESSION['dow_tehsil_value']: key($tehsil_list);
+   //$tehsil_selected = isset($form_state['values']['tehsil']) ? $form_state['values']['tehsil'] : $session_tehsil; 
+
+
+    }
+
+     $session_tehsil = ($_SESSION['tehsil_value'] !='') ? $_SESSION['tehsil_value']: key($tehsil_list);
+
+    
+  //  $tehsil_list = _get_location('tehsil',$state_selected,$district_selected);
+    $tehsil_selected = isset($form_state['values']['tehsil']) ? $form_state['values']['tehsil'] : $session_tehsil; 
+    $form['tehsil'] = array(
+        '#title' => 'Tehsil',
+        '#type' => 'select',
+        '#options' => $tehsil_list,
+        '#default_value' => $tehsil_selected,
+         '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_tehsil">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_tehsil',
+            'wrapper' => 'wrapper_village',
+            
+        )
+    );
+    
+
+        if(($role == 'Agent')){
+      
+         $village_value = $user_info->field_village['und'][0]['value'];
+          $village_list_data = _get_location('village',$state_selected,$district_selected,$tehsil_selected,'',$ru_val);
+          $village_list[$village_value] = $village_list_data[$village_value];
+        }
+
+    if(($role == 'Tehsil') || ($role == 'State') || ($role == 'District') || ($role == 'MOLE')||($user->uid == 1)){
+    $village_list = _get_location('village',$state_selected,$district_selected,$tehsil_selected,'',$ru_val);
+    }
+    
+    // if( ($role == 'Agency')){
+    //         $village_list_data = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+    //         $vill_value = explode(',', $result['village']);
+                 
+    //         $village_list = array();
+    //         foreach ($vill_value as $key => $village_data) {
+    //                 $village_list[$village_data] = $village_list_data[$village_data];
+    //         }
+    //         $vill_session_value = isset($_SESSION['dow_village_value']) ? $_SESSION['dow_village_value'] : key($village_list);
+    //         $village_selected = isset($form_state['values']['village']) ? $form_state['values']['village'] : $vill_session_value;
+
+    // }
+
+
+     if( ($role == 'Agency')){
+
+              $village_list_data = _get_location('village',$state_selected,$district_selected,$tehsil_selected,'',$ru_val);
+              //drupal_set_message('<pre>'.print_r($village_list_data).'');
+              $queryagencyvill = db_select('agency_record', 'ag_r');
+              $queryagencyvill->fields('ag_r');
+              $queryagencyvill->condition('ag_r.agency',$agency_detail['agency_id'],'=');
+              $queryagencyvill->condition('ag_r.state',$state_selected,'=');
+              $queryagencyvill->condition('ag_r.district',$district_selected,'=');
+             $queryagencyvill->condition('ag_r.tehsil',$tehsil_selected,'=');
+
+              $queryagencyvilldata = $queryagencyvill->execute();
+              $village = array();
+                while ( $result  = $queryagencyvilldata->fetchAssoc()) {
+                  $village[] = $result;
+            }
+             $vill_value = $village;
+            
+             $village_s = array();
+             foreach ($vill_value as $key => $village_data) {
+                    
+                  $currentDate = strtotime(date("Y-m-d"));
+                  $DateBegin = strtotime($village_data['dowload_date_from']);
+                  $DateEnd = strtotime($village_data['dowload_date_to']);
+
+                  //if($currentDate > $DateBegin && $currentDate < $DateEnd) {
+                          $village_s[] = explode(',', $village_data['village']);
+                  //} 
+      }
+      //drupal_set_message('<pre>'.print_r($village_s).'');
+                     $resultvill = array();
+                      foreach ($village_s as $key => $village_svalue) {
+                      $resultvill = array_merge($resultvill, $village_svalue);
+
+                    }
+                 // print_r($resultvill);
+                    $village_list = array();
+                    $village_list['0'] = 'Select';
+                    foreach ($resultvill as $key => $resultvilldata) {
+                    if(!empty($village_list_data[$resultvilldata])){
+                    $village_list[$resultvilldata] = $village_list_data[$resultvilldata];
+                  }
+                  }
+                   $vill_session_value = isset($_SESSION['dow_village_value']) ? $_SESSION['dow_village_value'] : key($village_list);
+                   $village_selected = isset($form_state['values']['village']) ? $form_state['values']['village'] : $vill_session_value;
+
+}
+
+     $session_village = ($_SESSION['village_value'] !='') ? $_SESSION['village_value']: key($village_list);
+
+    //$village_list = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+    $village_selected = isset($form_state['values']['village']) ? $form_state['values']['village'] : $session_village;
+    $form['village'] = array(
+        '#title' => 'Village/Town',
+        '#type' => 'select',
+        '#options' => $village_list,
+        '#default_value' => $village_selected,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_village">',
+        '#suffix' => '</div>',
+//        '#ajax' => array(
+//            'callback' => 'ajax_callback_state',
+//            'wrapper' = > 'wrapper_state',
+//            
+//        )
+    );
+     
+ $person_selected = ($_SESSION['person_name'] !='') ? $_SESSION['person_name']: '';
+
+ $form['person_name'] = array(
+    '#type' => 'textfield', 
+    '#title' => t('Name Of Person sounding Like..'), 
+    '#default_value' => $person_selected,
+    '#size' => 30, 
+    '#maxlength' => 128, 
+);
+ $find_house_hold_id = ($_SESSION['house_hold_id'] !='') ? $_SESSION['house_hold_id']: '';
+ $form['house_hold_id'] = array(
+    '#type' => 'textfield', 
+    '#title' => t('AHL Tin'), 
+    '#default_value' => $find_house_hold_id,
+    '#size' => 30, 
+    '#maxlength' => 128, 
+);
+    
+ $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+
+ $form['reset'] = array(
+    '#type' => 'submit',
+    '#submit' => array('search_reset'),
+    '#value' => t('Reset'),
+  );
+
+if(!empty($_SESSION['village_value'])){
+ $form['print_listperson']  = array(
+      '#type' => 'markup',
+      '#markup' =>t($print),      
+       );
+}
+ /*Start code to display the results*/
+ //$session_id = _drupal_session_read('house_id');
+ 
+ $fst = $_SESSION['secc_uw_value'];
+ $sec = $_SESSION['rural_urban_value'];
+ $tbl = $fst.''.$sec;
+ if($session_district == 0){
+  $session_district ='';
+ }
+ if($session_tehsil == 0){
+  $session_tehsil ='';
+ }
+ if($session_village == 0){
+  $session_village ='';
+ }
+
+ if(!empty($tbl)){
+ $person_name = $_SESSION['person_name'];
+ $search_ahltin = $_SESSION['house_hold_id'];
+  
+  $house_hold_id = $session_state.''.$session_district.''.$session_tehsil.''.$session_village;
+ //drupal_set_message('And table name'.$tbl.".individual_21".'house hold id'.$house_hold_id.'');
+  
+ $header = array('S.N','AHL TIN','House-Hold ID', 'Member S.No','Name', 'Name(Regional)','Fathers\'s Name','Mother\'s Name','Occupation','YoB (YYYY)/DoB (DD/MM/YYYY)','HoF','Gender','Relation With HOF');
+ $header_uw_rural = array('S.N','AHL TIN','House-Hold ID','Name', 'Name(Regional)','Fathers\'s Name','Mother\'s Name','Occupation','YoB (YYYY)/DoB (DD/MM/YYYY)','HoF','Gender','Relation','lessthan_10000','landlessthan_4acres','house_based','Edit',);
+ $header_uw_urban = array('S.N','AHL TIN','House-Hold ID','Name', 'Name(Regional)','Fathers\'s Name','Mother\'s Name','Occupation','YoB (YYYY)/DoB (DD/MM/YYYY)','HoF','Gender','Relation','Edit',);
+ 
+ 
+ //drupal_set_message(''.$tbl.".individual_".$_SESSION['state_value'].'');
+ try{
+        $query = db_select($tbl.".individual_".$_SESSION['state_value'], "n");
+        $query->fields('n');
+        $query->condition('n.statecode', $session_state, '=');
+        $query->condition('n.districtcode', $session_district, '=');
+        $query->condition('n.tehsilcode', $session_tehsil, '=');
+        $query->condition('n.towncode', $session_village, '=');
+
+        if(!empty($person_name)){
+          $query->condition('n.name', '%'.db_like($person_name) . '%', 'LIKE');
+       }
+       if(!empty($search_ahltin)){
+          $query->condition('n.ahl_tin',$search_ahltin);
+       }
+       $query->orderBy('n.house_hold_id','ASC');
+       $query = $query->extend('TableSort')->extend('PagerDefault')->limit(20);
+       $result = $query->execute();
+       
+ } catch (Exception $ex) {
+        //form_set_error(t('Unable to find records Please contact to administrator'));
+        //drupal_set_message('Unable to find records Please contact to administrator','error');
+        //form_set_error('',t('Unable to find records Please contact to administrator'));
+ }
+
+  
+  $rows = array();
+   $page =($_GET['page']*20);
+
+if ($session_sec == 'secc_'){//uw_
+                $i = $page+1;
+                $ru_or_ur = $_SESSION['rural_urban_value'];
+                          while($data = $result->fetchObject()){
+                            // Fill the table rows
+                              $edit_sch = 'secc_'.$_SESSION['rural_urban_value'];
+                              
+                              //$edit = l('Edit','labour/'.$data->ahl_tin.'/edit', array('query' => array('mode' => $_GET['q']),'html' => TRUE));
+
+                              $fqry = db_select('activity.family_registration','a')
+                                    ->fields('a',array('ahl_tin'))
+                                    ->condition('ahl_tin',$data->ahl_tin)
+                                    ->execute()->fetchcolumn();
+                                 if($fqry != ''){
+                                  $edit = '<b>Record Updated</b>';
+
+                                 }else {
+                              $edit = l('Edit','family/'.$data->house_hold_id.'/uw-listing', array('query' => array('mode' => $_GET['q']),'html' => TRUE));
+                            }
+                              $delete = l('Delete','labour/'.$data->ahl_tin.'/'.$edit_sch.'/delete', array('query' => array('mode' => $_GET['q']),'html' => TRUE));
+                              
+                              
+                            if($data->uw_record == 'u'){
+                            $uw_record = 'State Govt';
+                            } elseif($data->uw_record == 'm'){
+                                $uw_record = 'MoLE';
+                            }else{
+                             $uw_record = '';
+                            }
+                              if($uw_record != ''){
+                                        $un_worker_status = 'Yes';
+                                    }else{
+                                        $un_worker_status = 'No';
+                                    }
+                              //rows for rural
+                              $rows[$data->ahl_tin] = array(
+                              $i,    
+                              $data->ahl_tin,
+                              $data->house_hold_id,
+                             // $un_worker_status,    
+                              $data->name,
+                              $data->name_sl,    
+                              $data->fathername,
+                              $data->mothername,
+                              $data->occupation,
+                              $data->yob,    
+                              get_hof($data->hof),
+                              get_gender($data->genderid),
+                              $data->relation,
+                              $data->lessthan_10000,
+                              $data->landlessthan_4acres,
+                              $data->house_based,
+                              //$uw_record,
+                              $edit,
+                              //$delete,    
+                          );
+                              //rows for urban
+                              $rows_urban[$data->ahl_tin] = array(
+                              $i,    
+                              $data->ahl_tin,
+                              $data->house_hold_id,
+                            //  $un_worker_status,    
+                              $data->name,
+                              $data->name_sl,    
+                              $data->fathername,
+                              $data->mothername,
+                              $data->occupation,
+                              $data->yob,    
+                              get_hof($data->hof),
+                              get_gender($data->genderid),
+                              $data->relation,
+                              // $data->beggars_dw_sv_hbw_adwi_wages,
+                              // $data->construction_pl_sw_tw_sw,
+                              //$uw_record,
+                              $edit,
+                              //$delete,    
+                          );
+                            $i++;
+                        }
+                        
+                        if($ru_or_ur == 'rural'){
+                            $uw_header = $header_uw_rural;
+                            $uw_rows = $rows;
+                            }else{
+                             $uw_header = $header_uw_urban;
+                             $uw_rows = $rows_urban;
+                            }
+                            
+//                        
+
+                             $form['table'] = array(
+                                 '#theme' => 'table',
+                                 '#header' => $uw_header,
+                                 '#rows' => $uw_rows,
+                                 '#empty' => t('Table has no row!'),
+                                 '#prefix' => "<div id='my_printable_div'>",
+                                 '#suffix' => "</div>",
+                               );
+    
+       
+ } 
+
+$form['pager'] = array('#markup' => theme('pager'));
+
+}  
+
+    return $form;
+    
+}
+function ajax_callback_rural_urban($form, $form_state){
+
+
+         $form_field_r_u = $form_state['values']['rural_urban'];
+         if($form_field_r_u == 'rural')
+         {
+            $r_u = 'R';
+         }
+         else{
+            $r_u = 'U';
+         }
+
+  // return $form['wrapper_rurul_urban'] = $r_u;
+
+    $form_field_state = $form['state'];
+    $form_field_district = $form['district'];
+    $form_field_tehsil = $form['tehsil'];
+    $form_field_village = $form['village'];
+   
+       return array(
+           '#type' => 'ajax',
+           '#commands' => array(
+           ajax_command_replace("#wrapper_state", render($form_field_district)),                      
+           ajax_command_replace("#wrapper_tehsil", render($form_field_tehsil)),
+           ajax_command_replace("#wrapper_village", render($form_field_village))    
+           )
+   );
+
+}
+
+function ajax_callback_district($form, $form_state){
+    
+    // return $form['tehsil'];
+    
+     $form_field_tehsil = $form['tehsil'];
+     $form_field_village = $form['village'];
+    
+       return array(
+           '#type' => 'ajax',
+           '#commands' => array(
+                       ajax_command_replace("#wrapper_tehsil_de", render($form_field_tehsil)),
+
+           ajax_command_replace("#wrapper_tehsil", render($form_field_tehsil)),
+           ajax_command_replace("#wrapper_village", render($form_field_village))    
+           )
+   );
+    
+   // return $form['tehsil'];
+}
+
+function ajax_callback_district_p($form, $form_state){
+    
+    // return $form['tehsil'];
+    
+     $form_field_tehsil = $form['current-address']['tehsil_p'];
+     $form_field_village = $form['current-address']['village_p'];
+    
+       return array(
+           '#type' => 'ajax',
+           '#commands' => array(
+           ajax_command_replace("#wrapper_tehsil_p", render($form_field_tehsil)),
+           ajax_command_replace("#wrapper_village_p", render($form_field_village))    
+           )
+   );
+    
+   // return $form['tehsil'];
+}
+
+function ajax_callback_district_permanent($form, $form_state){
+    
+    // return $form['tehsil'];
+    
+     $form_field_tehsil = $form['permanent-address']['tehsil_permanent'];
+     $form_field_village = $form['permanent-address']['village_permanent'];
+    
+       return array(
+           '#type' => 'ajax',
+           '#commands' => array(
+           ajax_command_replace("#wrapper_tehsil_permanent", render($form_field_tehsil)),
+           ajax_command_replace("#wrapper_village_permanent", render($form_field_village))    
+           )
+   );
+    
+   // return $form['tehsil'];
+}
+
+function ajax_callback_tehsil($form, $form_state){
+   // print_r($form['village']);
+    
+ return $form['village'];
+}
+function ajax_callback_tehsil_p($form, $form_state){
+    
+    return $form['current-address']['village_p'];
+}
+
+
+function ajax_callback_tehsil_permanent($form, $form_state){
+    
+    return $form['permanent-address']['village_permanent'];
+}
+
+function list_persons_validate($form,$form_state){
+    
+    $choose_state = $form_state['values']['state'];
+    $choose_ru_ur = $form_state['values']['rural_urban'];
+    $pre_secc = 'secc_';
+    $tbl = $pre_secc.''.$choose_ru_ur;
+    
+    $new_tbl_name = $tbl.".individual_".$choose_state;
+    
+    if(db_table_exists($new_tbl_name)){
+             //form_set_error('', t('State table Does not exist'));  
+    }else{
+        form_set_error('', t('Table Does Not Exist'));  
+    }
+    //form_set_error('', t('sfsdf sdf sdf sdf')); 
+}
+
+function list_persons_submit($form,$form_state){
+ 
+    if($form_state['values']['state'] != '0'){
+           $_SESSION['state_value'] =  $form_state['values']['state'];
+
+       }
+       if ($form_state['values']['district'] != '') {
+            $_SESSION['district_value'] =  $form_state['values']['district'];
+           
+       }
+       if ($form_state['values']['tehsil'] != '') {
+                    $_SESSION['tehsil_value'] =  $form_state['values']['tehsil'];
+
+       }
+       if ($form_state['values']['village'] != '') {
+
+                 $_SESSION['village_value'] =  $form_state['values']['village'];
+
+       }
+        if ($form_state['values']['secc_uw'] != '') {
+
+                 $_SESSION['secc_uw_value'] =  $form_state['values']['secc_uw'];
+
+       }
+        if ($form_state['values']['rural_urban'] != '') {
+
+                 $_SESSION['rural_urban_value'] =  $form_state['values']['rural_urban'];
+
+       }
+       if ($form_state['values']['person_name'] != '') {
+
+                 $_SESSION['person_name'] =  $form_state['values']['person_name'];
+
+       }
+       if ($form_state['values']['house_hold_id'] != '') {
+
+                 $_SESSION['house_hold_id'] =  $form_state['values']['house_hold_id'];
+
+       }
+
+       
+        //_drupal_session_read('house_id');
+}
+
+
+        
+function search_reset(){
+
+        if($_SESSION['secc_uw_value'] !=''){
+              unset($_SESSION['secc_uw_value']);
+            }
+            if($_SESSION['rural_urban_value'] !=''){
+              unset($_SESSION['rural_urban_value']);
+            }
+
+            if($_SESSION['state_value'] !=''){
+              unset($_SESSION['state_value']);
+            }
+            if($_SESSION['district_value'] !=''){
+              unset($_SESSION['district_value']);
+            }
+            if($_SESSION['tehsil_value'] !=''){
+               unset($_SESSION['tehsil_value']);
+            }
+            if($_SESSION['village_value'] !=''){
+              unset($_SESSION['village_value']);
+            }
+   
+           if($_SESSION['person_name'] !=''){
+              unset($_SESSION['person_name']);
+            }
+            
+            if($_SESSION['house_hold_id'] !=''){
+              unset($_SESSION['house_hold_id']);
+            }
+            
+            
+}
+
+
+function ajax_callback_state($form, $form_state){
+        //$form_field_district_de = $form['district_de'];
+
+    
+    $form_field_district = $form['district'];
+    $form_field_tehsil = $form['tehsil'];
+    $form_field_village = $form['village'];
+   
+       return array(
+           '#type' => 'ajax',
+           '#commands' => array(
+           ajax_command_replace("#wrapper_state", render($form_field_district)),
+                      //ajax_command_replace("#wrapper_state_p", render($form_field_district)),
+           //ajax_command_replace("#wrapper_state", render($form_field_district_de)),
+
+           ajax_command_replace("#wrapper_tehsil", render($form_field_tehsil)),
+           ajax_command_replace("#wrapper_village", render($form_field_village))    
+           )
+   );
+    }
+    function ajax_callback_state_p($form, $form_state){
+      
+    $form_field_district = $form['current-address']['district_p'];
+    $form_field_tehsil = $form['current-address']['tehsil_p'];
+    $form_field_village = $form['current-address']['village_p'];
+       return array(
+           '#type' => 'ajax',
+           '#commands' => array(
+           ajax_command_replace("#wrapper_state_p", render($form_field_district)),
+           ajax_command_replace("#wrapper_tehsil_p", render($form_field_tehsil)),
+           ajax_command_replace("#wrapper_village_p", render($form_field_village))   
+           )
+   );
+   return $form['current-address']['district_p'];
+    
+}
+
+function ajax_callback_state_permanent($form, $form_state){
+      
+    $form_field_district = $form['permanent-address']['district_permanent'];
+    $form_field_tehsil = $form['permanent-address']['tehsil_permanent'];
+    $form_field_village = $form['permanent-address']['village_permanent'];
+       return array(
+           '#type' => 'ajax',
+           '#commands' => array(
+           ajax_command_replace("#wrapper_state_permanent", render($form_field_district)),
+           ajax_command_replace("#wrapper_tehsil_permanent", render($form_field_tehsil)),
+           ajax_command_replace("#wrapper_village_permanent", render($form_field_village))   
+           )
+   );
+   return $form['current-address']['district_permanent'];
+    
+}
+
+function _get_location($type, $state_id = NULL, $district_id = NULL, $tehsil_id = NULL, $village_id = NULL ,$r_u) {
+        switch ($type) {
+        case 'state':
+            $states = array('' => 'Select');
+           
+            $query = db_query('select code,name from location."state" order by name');
+            //$query = db_query('select rgi2011_state_code,state_name from location."RGI2011_State" order by state_name');
+                foreach ($query as $q){
+                    $states[$q->code] = t($q->name);
+                }
+            
+        return $states;
+        break;
+
+        case 'district':
+            $districts = array('' => 'Select');
+            //$qr = db_query('select district_name,rgi2011_district_code FROM {location."RGI2011_District"} where rgi2011_state_code = :sid order by district_name', array(':sid' => $state_id));
+            $qr = db_query('select name,code FROM {location."district"} where state_code = :sid order by name', array(':sid' => $state_id));
+            foreach ($qr as $q){
+                $districts[$q->code] = t($q->name);
+            }
+            
+        return $districts;
+        break;
+
+        case 'tehsil':
+                   $tehsil = array('' => 'Select');
+                   //$qr = db_query('select tehsil,rgi2011_tehsil_code from {location."RGI2011_Tehsil"} where rgi2011_state_code = :sid AND rgi2011_district_code = :did order by tehsil', array(':sid' => $state_id, ':did' => $district_id));
+                   $qr = db_query('select name,code from {location."tehsil"} where state_code = :sid AND district_code = :did order by name', array(':sid' => $state_id, ':did' => $district_id));
+                        foreach ($qr as $q){
+                            $tehsil[$q->code] = t($q->name);
+                        }
+            
+            
+        return $tehsil;
+        break;
+    
+        case 'village':
+            
+            $village = array('' => 'Select');
+            //$qr = db_query('select village_town,rgi2011_village_town_code from {location."RGI2011_Village_Town"} where rgi2011_state_code = :sid AND rgi2011_district_code = :did AND rgi2011_tehsil_code = :tid order by village_town', array(':sid' => $state_id, ':did' => $district_id, ':tid' => $tehsil_id));
+            if(!empty($r_u)){
+            $qr = db_query('select name,code,rural_urban from {location."village_town"} where state_code = :sid AND district_code = :did AND tehsil_code = :tid AND rural_urban = :ru order by name', array(':sid' => $state_id, ':did' => $district_id, ':tid' => $tehsil_id, ':ru' => $r_u));
+        }else {
+             $qr = db_query('select name,code,rural_urban from {location."village_town"} where state_code = :sid AND district_code = :did AND tehsil_code = :tid  order by name', array(':sid' => $state_id, ':did' => $district_id, ':tid' => $tehsil_id));
+        }
+            foreach ($qr as $q){
+                         $village[$q->code] = t(($q->name)." (". $q->rural_urban . ")");
+                        }                     
+           //drupal_set_message('data are'.print_r($village, TRUE).'');
+
+        return $village;
+        break;
+        }
+}
+
+
+/* Load the labour data in single column and return as array*/
+
+function labour_load($schema_name,$ahl_tin){
+     
+  $query = db_select($schema_name.'.individual_'.$_SESSION['state_value'],'secc')
+         ->fields('secc')
+         ->condition('secc.ahl_tin',$ahl_tin,'=')
+         ->execute()->fetchAssoc();
+  
+    return $query;
+     
+ }
+ 
+ function move_and_update($rural_urban_schema,$ahl_tin){
+
+$tbl_sc = 'secc_'.$rural_urban_schema.'';
+$chk_sch = 'secc_'.$rural_urban_schema.'';
+
+$data = labour_load($tbl_sc,$ahl_tin);
+$check = labour_load($chk_sch,$ahl_tin);
+        if($check['house_hold_id'] == ''){
+        $result = db_insert($chk_sch.'.individual_'.$_SESSION['state_value'])
+                  ->fields(array(
+                      'house_hold_id' => $data['house_hold_id'],
+                      'tin_npr' => $data['tin_npr'],
+                      'slnomember' => $data['slnomember'],
+                      'ahltypeofeb' => $data['ahltypeofeb'],
+                      'livinginshelter' => $data['livinginshelter'],
+                      'hhd_sectwocodes' => $data['hhd_sectwocodes'],
+                      'totalirrigated' => $data['totalirrigated'],
+                      'totalunirrigated' => $data['totalunirrigated'],
+                      'otherirrigated' => $data['otherirrigated'],
+                      'name' => $data['name'],
+                      'name_sl' => $data['name_sl'],
+                      'relation' => $data['relation'],
+                      'genderid' => $data['genderid'],
+                      'dob' => $data['dob'],
+                      'mstatusid' => $data['mstatusid'],
+                      'fathername' => $data['fathername'],
+                      'mothername' => $data['mothername'],
+                      'occupation' => $data['occupation'],
+                      'educode' => $data['educode'],
+                      'education_other' => $data['education_other'],
+                      'incomesource_urban' => $data['incomesource_urban'],
+                      'wages_urban' => $data['wages_urban'],
+                      'disabilitycode' => $data['disabilitycode'],
+                      'hhd_housingcodes' => $data['hhd_housingcodes'],
+                      'hhd_otherassetscodes' => $data['hhd_otherassetscodes'],
+                      'hhd_employmentcodes' => $data['hhd_employmentcodes'],
+                      'ahl_tin' => $data['ahl_tin'],
+                      'member_status' => $data['member_status'],
+                      'age' => $data['age'],
+                      'yob' => $data['yob'],
+                      'hof' => $data['hof'],
+                  ))
+                ->execute();
+        }else{
+
+        }   
+}
+
+function uv_uowdb_delete($del_sch,$ahl_tin_id){
+    
+    $query = db_delete($del_sch.'.individual_'.$_SESSION['state_value'])
+            ->condition('ahl_tin',$ahl_tin_id)
+            ->execute();
+    return $query;
+}
+
+function secc_move_flag_update($token_sch,$ahl_tin,$status){
+    
+    db_update($token_sch.'.individual_'.$_SESSION['state_value'])
+            ->fields(array(
+                'uw_record' => $status
+            ))
+            ->condition('ahl_tin',$ahl_tin,'=')
+            ->execute();
+}
+
+function get_gender($gid){
+     $gender_array = array(1 => 'Male',2 => 'Female',3 => 'Transgender');
+     if(array_key_exists($gid, $gender_array)){
+         $gender = $gender_array[$gid];
+     }
+     return $gender;
+ }
+ 
+function get_marital_status($mid){
+     $marital_array = array(1 => 'Never married',2 => 'Currently married',3 => 'Widowed', 4 => 'Separated',5 => 'Divorced');
+     if(array_key_exists($mid,$marital_array)){
+         $marriage = $marital_array[$mid];
+     }
+     return $marriage;
+     
+}
+
+function get_education($eid){
+     $education_array = array(1 => 'Illiterate',2 => 'Literate but below primary',3 => 'Primary', 4 => 'Middle',5 => 'Secondary',6 => 'Higher Secondary',7 => 'Graduate or higher',8 => 'Other(specify)');
+     if(array_key_exists($eid,$education_array)){
+         $education = $education_array[$eid];
+     }
+     return $education;
+}
+
+ function get_hof($h){
+     $hof_array = array(0 => 'No',1 => 'yes');
+     if(array_key_exists($h,$hof_array)){
+         $hof = $hof_array[$h];
+     }
+     return $hof;
+ }
+
+
+                /****************************family wise code start*******************************************/
+
+
+
+function update_relation_family($form,&$form_state){
+
+ // echo "<pre>";
+  //print_r($_SESSION);
+    $ahl_tin = arg(1);
+    $state_val = $_SESSION['state_value'];
+  $r_u = $_SESSION['rural_urban_value'];
+  //print 'secc_'.$r_u.'.individual_'.$state_val;
+    
+      //$query = db_select($schema_name.'.individual_'.$_SESSION['state_value'],'secc')
+        $query = db_select('secc_'.$r_u.'.individual_'.$state_val,'secc')      
+         ->fields('secc',array('ahl_tin','slnomember','name','genderid','yob','house_hold_id'))
+         ->condition('secc.ahl_tin',$ahl_tin,'=')
+         ->execute()->fetchAssoc();
+  
+    
+    $form['family-read-only'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'Read Only',  
+    '#prefix' => '<div class="read-only-fields">',
+   );
+    
+   $form['family-read-only']['household'] = array(
+        '#type' => 'item',
+        '#markup' => '<strong> AHL TIN :</strong> '.$query['ahl_tin'].'',
+    );
+    
+   $form['family-read-only']['name'] = array(
+        '#type' => 'item',
+        '#markup' => '<strong> Name :</strong> '.$query['name'].'',
+   );
+   
+   $form['family-read-only']['slomember'] = array(
+        '#type' => 'item',
+        '#markup' => '<strong> S.No Member :</strong> '.$query['slnomember'].'',
+   );
+   
+   $form['family-read-only']['gender'] = array(
+        '#type' => 'item',
+        '#markup' => '<strong> Gender :</strong> '.get_gender($query['genderid']).'',
+   );
+   $age = date('Y')- $query['yob'];
+   $form['family-read-only']['age'] = array(
+        '#type' => 'item',
+        '#markup' => '<strong> Age :</strong> '. $age .'',
+   );
+   
+   $form['family-read-only']['name'] = array(
+        '#type' => 'item',
+        '#markup' => '<strong> Name :</strong> '.$query['name'].'',
+        '#default_value' => $query['name'],
+   );
+   // Hidden values for saving in table
+   $form['household_hidden'] = array('#type' => 'hidden', '#value' => $query['house_hold_id']);
+   $form['name_hidden'] = array('#type' => 'hidden', '#value' => $query['name']);
+   $form['slomember_hidden'] = array('#type' => 'hidden', '#value' => $query['slnomember']);
+   $form['genderid_hidden'] = array('#type' => 'hidden', '#value' => $query['genderid']);
+   $form['yob_hidden'] = array('#type' => 'hidden', '#value' => $query['yob']);
+   //end hidden value
+        $qry = db_select('activity.family_relation','fm')
+        ->fields('fm')
+        ->execute()->fetchAll();
+   
+         $relation_list = array('0' => 'Select');
+   
+           foreach ($qry as $q){
+               $relation_list[$q->code] = t($q->name);
+       
+           }
+   
+    $form['family-read-only']['hof'] = array(
+        '#type' => 'select',
+        '#title' => t('Relationship With HOF'),
+        '#options' => $relation_list,
+        '#required' => TRUE,
+        //'#markup' => '<strong> Name :</strong> '.$query['name'].'',
+   );
+   
+    $form['family-read-only']['uw'] = array(
+        '#type' => 'select',
+        '#title' => t('Unorganised Workers (YES/NO)'),
+        '#options' => array(
+          'No' => t('No'),
+          'Yes' => t('Yes'),
+       ),
+        '#required' => TRUE,
+
+        //'#markup' => '<strong> Name :</strong> '.$query['name'].'',
+   );
+    
+     $form['family-read-only']['aadhar'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Aadhar'),
+        '#maxlength' => 12,
+        '#size' => 20,
+        //'#description' => 'Aadhar card should be 12 digits only', 
+        //'#markup' => '<strong> Name :</strong> '.$query['name'].'',
+   );
+     
+   $form['family-read-only']['alive-decease'] = array(
+        '#type' => 'select',
+        '#title' => t('Alive/Decease'),
+        '#options' => array(
+          'Alive' => t('Alive'),
+          'Decease' => t('Decease'),
+          
+       ),
+    );  
+  
+    $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Update Relation'),
+    '#weight' => 100,
+  );
+    
+    
+    $fst = $_SESSION['secc_uw_value'];
+    $sec = $_SESSION['rural_urban_value'];
+    $tbl = $fst.''.$sec;
+    $house_hld = $query['house_hold_id'];
+    
+$fqry = db_select('activity.family_registration','a')
+            ->fields('a',array('house_hold_id','ahl_tin'))
+            ->condition('a.house_hold_id',$house_hld)
+            ->execute();
+            $ahl =array();
+            while ($resultv = $fqry->fetchAssoc()) {
+              
+              $ahl[] = $resultv['ahl_tin'];
+            }
+
+//print_r($ahl);
+
+
+            $query = db_select('secc_'.$r_u.'.individual_'.$state_val, "n");
+            $query->fields('n');
+            $query->condition('n.house_hold_id',$house_hld);
+            $query = $query->extend('TableSort')->extend('PagerDefault')->limit(20);
+            $result_list = $query->execute();
+    
+        $family_header_update = array('Name','AHL TIN','Member S.No','Relation','Head of family','Gender','Year of Birth','Age as on Date','Edit');
+                    
+                    $c = 0;
+                    while($data = $result_list->fetchObject()){
+                            // Fill the table rows
+                      if(!in_array($data->ahl_tin, $ahl)){
+                        $edit_family = l('Edit','/family/'.$data->ahl_tin.'/update-relation');
+                        $family_rows_update[$data->ahl_tin] = array(
+                              $data->name,
+                              $data->ahl_tin,
+                              $data->slnomember, 
+                              $data->relation, 
+                              get_hof($data->hof),
+                              get_gender($data->genderid),
+                              $data->yob,
+                              date('Y') - $data->yob,
+                              $edit_family,
+                          );
+                      
+                     $c++;   
+                     }    
+                    }
+                  //  print $c;
+                  //print_r($expression);      
+                $form['family-select2'] = array(
+                //'#type' => 'tableselect',   
+                '#theme' => 'table',
+                '#header' => $family_header_update,
+                '#rows' => $family_rows_update,
+                '#weight' => 1,   
+                '#empty' => t('No Data Found.'),
+                '#prefix' => "<div id='my_printable_div'>",
+                            '#suffix' => "</div>",
+              );
+                if($c == 0){
+                $form['uw-listing'] = array(
+                  '#type' => 'link',
+                  '#title' => t('Next'),
+                  '#prefix' => '<div class="family-update-nxt"><strong>',
+                  '#suffix' => '</strong></div>',  
+                  '#weight' => 10,  
+                  '#href' => 'family/'.$house_hld.'/uw-listing',
+                );
+              }
+  
+  return $form;
+    
+}
+
+
+function family_members($form, &$form_state){
+
+
+ // print_r($_SESSION);
+  $state_val = $_SESSION['state_value'];
+  $r_u = $_SESSION['rural_urban_value'];
+ // print 'secc_'.$r_u.'.individual_'.$state_val;
+   $house_hold = arg(1);
+   
+   $get_hof = db_select('secc_'.$r_u.'.individual_'.$state_val,'secc')      
+         ->fields('secc',array('name'))
+         ->condition('secc.house_hold_id',$house_hold)
+         ->condition('secc.hof','1')  
+         ->execute()->fetchAssoc();
+   
+    $form['family-fielddet'] = array(
+    '#type' => 'fieldset', 
+    '#title' => t('Selected Family'), 
+    '#weight' => 0, 
+    '#collapsible' => TRUE, 
+    '#collapsed' => FALSE,
+    );
+  
+   $form['family-fielddet']['household'] = array(
+   '#type' => 'item',
+   '#markup' => '<strong>HouseHold Id :</strong> '.arg(1).'',
+  );
+  $form['family-fielddet']['head-family'] = array(
+   '#type' => 'item',
+   '#markup' => '<strong>Head Of Family:</strong> '.$get_hof['name'].'',
+  );
+
+   $edit = l('New Registration','labour-register', array('query' => array('house_h' => $house_hold),'html' => TRUE));
+
+  $form['family-fielddet']['new_reg'] = array(
+   '#type' => 'item',
+   '#markup' => $edit,
+  );
+  
+  // session state came from search filter module 
+  if(is_numeric($house_hold)){
+      
+    $fst = $_SESSION['secc_uw_value'];
+    $sec = $_SESSION['rural_urban_value'];
+    $tbl = $fst.''.$sec;
+    
+   //try{
+            //$query = db_select($tbl.".individual_".$_SESSION['state_value'], "n");
+            $query = db_select('secc_'.$r_u.'.individual_'.$state_val , "n");
+            $query->fields('n'); 
+            $query->condition('n.house_hold_id',$house_hold);
+            $query = $query->extend('TableSort')->extend('PagerDefault')->limit(20);
+            $result = $query->execute();
+    //} catch (Exception $ex) {
+            //form_set_error('',t('Unable to find Table names Please contact to administrator'));
+    //}
+    
+    $family_header = array('Name','AHL TIN','Member S.No','Head of family','Relation','Gender','Year of Birth','Age as on Date','Edit');
+                    
+                    
+                    while($data = $result->fetchObject()){
+                     // echo "<pre>";
+                      //print_r($data);
+                            // Fill the table rows
+
+                       //  $result = db_select('online_reg_'.$r_u.'.individual_'.$state_val,'qwe')      
+                       // ->fields('qwe')
+                       // ->condition('ahl_tin',$data->ahl_tin)
+                       // ->execute()->rowCount();
+                       //   if($result == 0){
+                        $edit_family = l('Update Relationships','/uw_worker/'.$data->ahl_tin.'/registration');
+                      // } else {
+                      //  $edit_family = "<b>Record Updated</b>";
+
+                      // }
+                        //$edit_family = l('Edit','/family/'.$data->ahl_tin.'/update-relation');
+                        $family_rows[$data->ahl_tin] = array(
+                              $data->name,
+                              $data->ahl_tin,
+                              $data->slnomember,    
+                              get_hof($data->hof),
+                              $data->relation,
+                              get_gender($data->genderid),
+                              $data->yob,
+                              date('Y') - $data->yob,
+                              $edit_family,
+                          );
+                            
+                    }
+                  //print_r($expression);      
+                $form['family-select'] = array(
+                //'#type' => 'tableselect',   
+                '#theme' => 'table',
+                '#header' => $family_header,
+                '#rows' => $family_rows,
+                '#weight' => 1,   
+                '#empty' => t('No Data Found.'),
+                '#prefix' => "<div id='my_printable_div'>",
+                            '#suffix' => "</div>",
+              );
+      
+  }
+   
+ return $form;
+    
+}
+
+function list_uw_workers($form, &$form_state){
+
+$state_val = $_SESSION['state_value'];
+  $r_u = $_SESSION['rural_urban_value'];
+  $householdid = arg(1);
+
+
+    $query = db_select('secc_'.$r_u.'.individual_'.$state_val,'secc')      
+         ->fields('secc',array('name'))
+         ->condition('house_hold_id',$householdid)
+         ->condition('hof','1')  
+         ->execute()->fetchAssoc();
+
+
+    $form['family-fielddet'] = array(
+    '#type' => 'fieldset', 
+    '#title' => t('family details as per records'), 
+   // '#weight' => 0, 
+    '#collapsible' => TRUE, 
+    '#collapsed' => FALSE,
+    );
+  
+  $form['family-fielddet']['household'] = array(
+    '#type' => 'textfield',
+    '#default_value' => arg(1),  
+    '#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('HouseHold Id :'),  
+    '#size' => 30,
+    '#prefix' => '<div class="family-household">',
+                  '#suffix' => '</div>', 
+    );
+   $new_regis_url = l('New Registration (If Any)','labour-register', array('query' => array('house_h' => $householdid),'html' => TRUE));
+
+  $form['family-fielddet']['new_reg'] = array(
+   '#type' => 'item',
+   '#markup' => $new_regis_url,
+   '#prefix' => '<div class="family-new_reg">',
+    '#suffix' => '</div>'
+  );
+          
+  $form['family-fielddet']['head-family'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $query['name'],  
+    '#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Head of family'),  
+    '#size' => 30,
+    );
+
+  $hofquery = db_select('activity.family_registration','af')      
+         ->fields('af')
+         ->condition('af.house_hold_id',arg(1),'=')
+         ->condition('af.relation_hof','01')  
+         ->execute()->fetchAssoc();
+         // echo "<pre>";
+         // print_r($hofquery);  
+
+         $hof_ahl = $hofquery['ahl_tin'];
+         $hof_alive = $hofquery['alive_decease'];
+         $unorgansied_worker =  $hofquery['uw_workers'];
+
+
+    $form['family-fielddet']['head-alive-deceased'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $hof_alive,  
+    '#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Head of family Alive/deceased'),  
+    '#size' => 30,
+    );
+   
+
+  
+ $form['family-selected-for-card'] = array(
+    '#type' => 'fieldset', 
+    '#title' => t('family Member selected for Card Issuance'), 
+    //'#weight' => 0, 
+    '#collapsible' => TRUE, 
+    '#collapsed' => FALSE,
+    );
+
+
+ $query_family_member = db_select('secc_'.$r_u.'.individual_'.$state_val , "n");
+            $query_family_member->fields('n'); 
+            $query_family_member->condition('n.house_hold_id',$householdid);
+           $no_of_family_member = $query_family_member->execute()->rowCount();
+
+             $updatedcount = db_select('activity.family_registration','qwe')      
+                       ->fields('qwe')
+                       ->condition('qwe.house_hold_id',$householdid)
+                       ->execute()->rowCount();
+
+
+       if (($hof_alive == 'Alive') AND ($unorgansied_worker == 'Yes'))
+ {
+  $form['family-selected-for-card']['fm_name'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $query['name'],  
+    '#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Name'),  
+    '#size' => 30,
+    );
+
+   $form['family-selected-for-card']['fm_ahl_tin'] = array(
+    '#type' => 'textfield',
+    '#default_value' => $hof_ahl,  
+    '#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('AHL TIN No.'),  
+    '#size' => 30,
+    );
+  
+}
+else if($unorgansied_worker == 'No')
+{
+$unwpeople = db_select('activity.family_registration','af')      
+         ->fields('af',array('name','ahl_tin'))
+         ->condition('af.house_hold_id',arg(1),'=')
+         ->condition('af.relation_hof','01','!=')  
+         ->condition('af.uw_workers','Yes')  
+         ->execute();
+         $people_option = array();
+         while ($people = $unwpeople->fetchAssoc()) {
+          $people_option[$people['ahl_tin']] = $people['name'];
+
+
+         }
+
+
+ $form['family-selected-for-card']['fm_ahl_tin'] = array(
+        '#title' => 'Select person for Card',
+        '#type' => 'select',
+        '#options' => $people_option,
+        '#default_value' => '',
+      //  '#required' => TRUE,
+        
+        
+    );
+
+
+
+
+}
+if($no_of_family_member == $updatedcount){
+    $form['family-selected-for-card']['submit'] = array(
+       '#type' => 'submit',
+       '#value' => t('Proceed to capture Image'),
+      // '#weight' => 111,
+       '#submit' => array('proceed_to_capture_image'),
+   );
+
+   
+
+}
+   
+    
+
+   $fst = $_SESSION['secc_uw_value'];
+    $sec = $_SESSION['rural_urban_value'];
+    $tbl = $fst.''.$sec;
+   
+   $uw_header = array('Name','AHL TIN','Member S.No','Head of family','Relation','Gender','Age as on Date','Year of Birth','Edit'); 
+       
+$query = db_select('secc_'.$r_u.'.individual_'.$state_val , "n");
+            $query->fields('n'); 
+            $query->condition('n.house_hold_id',$householdid);
+            $query = $query->extend('TableSort')->extend('PagerDefault')->limit(20);
+            $resultdata = $query->execute();
+    while($data = $resultdata->fetchAssoc()){
+      
+       $relation = $data['hof'];
+     
+            if($relation == '1'){
+              $head = 'Yes';
+            }else{
+              $head = 'No';
+            }
+
+
+
+              $result = db_select('activity.family_registration','qwe')      
+                       ->fields('qwe')
+                       ->condition('qwe.ahl_tin',$data['ahl_tin'])
+                       ->execute()->rowCount();
+              
+
+                            // Fill the table rows
+              if($result == 0){
+                        $edit_family = l('Update Relationships','/uw/'.$data['ahl_tin'].'/validate_uw');
+                      } else {
+                       $edit_family = "<b>Record Updated</b>";
+
+                      }
+                        $uw_rows[] = array(
+                              $data['name'],
+                              $data['ahl_tin'],
+                              $data['slnomember'],    
+                              $head,
+                              $data['relation'],
+                              get_gender($data['genderid']),
+                              $data['age'],
+                              date('Y') - $data['age'],
+                              $edit_family,
+                          );
+                      
+                            
+                    }
+                    
+    $form['uw-select'] = array(
+                //'#type' => 'tableselect',   
+                '#theme' => 'table',
+                '#header' => $uw_header,
+                '#rows' => $uw_rows,
+                '#weight' => 1,   
+                '#empty' => t('No Data Found.'),
+                '#prefix' => "<div id='my_printable_div'>",
+                '#suffix' => "</div>",
+    );
+    
+    
+    return $form;
+    
+}
+
+function update_relation_family_submit($form, $form_state){
+   //drupal_set_message('<pre>'.print_r($form_state['values'],TRUE).'</pre>');
+    global $user;
+    $ahl_tin = arg(1);
+   
+     $age = date('Y') - $form_state['values']['yob_hidden'];
+
+              if($age >= '18') {
+                $uwr = $form_state['values']['uw'];
+}
+else{
+                $uwr = 'No';
+}
+    $fqry = db_select('activity.family_registration','a')
+            ->fields('a',array('ahl_tin'))
+            ->condition('ahl_tin',$ahl_tin)
+            ->execute()->fetchcolumn();
+            if($fqry != ''){
+                
+                
+                $update_qry = db_update('activity.family_registration')
+                              ->fields(array(
+                                  'relation_hof' => $form_state['values']['hof'],
+                                  'uw_workers' => $uwr,
+                                  'aadhar' => $form_state['values']['aadhar'],
+                                  'alive_decease' => $form_state['values']['alive-decease'],
+                                  
+                                   'house_hold_id' => $form_state['values']['household_hidden'],
+                                   'name' => $form_state['values']['name_hidden'],
+                                   'slnomember' => $form_state['values']['slomember_hidden'],
+                                   'genderid' => $form_state['values']['genderid_hidden'],
+                                   'age' => $form_state['values']['yob_hidden'],
+                                  
+                                  'uid' => $user->uid,
+                                  'created' => REQUEST_TIME,
+                                  'update_flag' => 1,
+                              ))
+                              ->condition('ahl_tin',arg(1))
+                              ->execute();
+                if($update_qry){
+                    drupal_set_message(t('Data has been updated successfully.'));
+                }
+                              
+                
+                
+
+            }else{
+                    $insert_qry = db_insert('activity.family_registration')
+                                    ->fields(array(
+                                        'ahl_tin' => arg(1),
+                                        'relation_hof' => $form_state['values']['hof'],
+                                        'uw_workers' => $uwr,
+                                        'aadhar' => $form_state['values']['aadhar'],
+                                        'alive_decease' => $form_state['values']['alive-decease'],
+                                        
+                                        'house_hold_id' => $form_state['values']['household_hidden'],
+                                        'name' => $form_state['values']['name_hidden'],
+                                        'slnomember' => $form_state['values']['slomember_hidden'],
+                                        'genderid' => $form_state['values']['genderid_hidden'],
+                                        'age' => $form_state['values']['yob_hidden'],
+                                        
+                                        'uid' => $user->uid,
+                                        'created' => REQUEST_TIME,
+                                        'update_flag' => 1,
+                                    ))
+                                    ->execute();
+                    if($insert_qry){
+                        drupal_set_message(t('Data has been updated successfully.'));
+                    }
+
+    }
+  
+
+}
+
+// function go_to_delcation_form_validate($form, &$form_state){
+//    die('ddddd');
+
+//             $uw_list = db_select('activity.family_registration','af')
+//             ->fields('af')
+//             ->condition('house_hold_id',arg(1))
+//             ->condition('uw_workers','Yes')
+//             ->execute();
+    
+//     $ahl = array();
+//     while($data = $uw_list->fetchObject()){
+//        $ahl[] = $data->ahl_tin;
+//     }
+//     if($_SESSION['rural_urban_value'] != ''){
+//       $online_table = 'online_reg_'.$_SESSION['rural_urban_value'];
+//   }
+
+//   $query = db_select($online_table.'.individual_'.$_SESSION['state_value'],'online')
+//          ->fields('online',array('ahl_tin'))
+//          ->condition('house_hold_id',arg(1))
+//          ->execute();
+  
+// $online_ahl = array();
+//     while($olineregdata = $query->fetchObject()){
+//        $online_ahl[] = $olineregdata->ahl_tin;
+//     }
+   
+// if (count(array_intersect($ahl, $online_ahl)) != count($ahl)){
+//     form_set_error('',t('Please Update All data '));
+// }
+// }
+ function go_to_delcation_form($form, &$form_state){
+ 
+
+
+   $uw_list = db_select('activity.family_registration','af')
+            ->fields('af')
+            ->condition('house_hold_id',arg(1))
+            ->condition('uw_workers','Yes')
+            ->execute();
+    
+    $ahl = array();
+    while($data = $uw_list->fetchObject()){
+       $ahl[] = $data->ahl_tin;
+    }
+    if($_SESSION['rural_urban_value'] != ''){
+      $online_table = 'online_reg_'.$_SESSION['rural_urban_value'];
+  }
+
+  $query = db_select($online_table.'.individual_'.$_SESSION['state_value'],'online')
+         ->fields('online',array('ahl_tin'))
+         ->condition('house_hold_id',arg(1))
+         ->execute();
+  
+$online_ahl = array();
+    while($olineregdata = $query->fetchObject()){
+       $online_ahl[] = $olineregdata->ahl_tin;
+    }
+   
+// if (count(array_intersect($ahl, $online_ahl)) != count($ahl)){
+//     form_set_error('',t('Please Update All data '));
+// }else{
+
+    $form['photograph'] = array(
+    '#type' => 'fieldset', 
+    '#title' => t('capture photograph'), 
+    //'#weight' => 0, 
+    '#collapsible' => TRUE, 
+    '#collapsed' => FALSE,
+    );
+
+ $form['photograph']['#attributes'] = array(
+      'enctype' => 'multipart/form-data'
+    );
+  
+ $form['photograph']['hof_photo'] = array(
+    '#type' => 'managed_file',
+    '#name' => 'hof_image',
+    '#required' => TRUE,
+    '#title' => t('Upload Photo'),
+    '#size' => 40,
+   // '#description' => t("Image should be less than 400 pixels wide and in JPG format."),
+    '#upload_location' => 'public://'
+  ); 
+ 
+
+
+ $form['declaration_statement'] = array(
+    '#type' => 'fieldset', 
+    '#title' => t('Declartion statments'), 
+    //'#weight' => 0, 
+    '#collapsible' => TRUE, 
+    '#collapsed' => FALSE,
+    );
+
+$form['declaration_statement']['i-wish'] = array(
+ '#markup' => t('I wish to apply for registration as unorganized worker per the provisions of Section 10(3) of the Unorganized Workers’ Social Security Act 2008 and issuance of Mahatma Phule National Social Security (MPNSS) Card.<br><br>'),
+ //'#default_value' => $_SESSION['reg_i-wish'],
+  );
+$form['declaration_statement']['declare'] = array(
+ '#markup' => t('Further, I hereby declare that-'),
+ //'#default_value' => $_SESSION['reg_declare'],   
+);
+
+//$indian_citz = array('I am an Indian Citizen.');
+//$uw_array = array('I am an unorganized worker.');
+
+$form['declaration_statement']['ic_indian_citz'] = array(
+    '#type' => 'checkbox',
+   // '#default_value' => $_SESSION['reg_indian_citz'],
+    //'#options' => $indian_citz,
+    '#title' => t('I am an Indian Citizen'),  
+    );
+$form['declaration_statement']['ic_uw'] = array(
+    '#type' => 'checkbox',
+    //'#default_value' => $_SESSION['reg_ic_uw'],
+    //'#options' => $uw_array,
+    '#title' => t('I am an unorganized worker'), 
+    '#required' => TRUE, 
+ 
+    );
+
+//$uw_criteria_0 = array('I am NOT a member of Employee Provident Fund Organization (EPFO) or Employee State Insurance Corporation (ESIC)');
+//$uw_criteria_1 = array('My average income per month is less than Rs. 15,000 per month');
+//$uw_criteria_2 = array('I am above 18 years of age');
+
+$form['declaration_statement']['uw_criteria_0'] = array(
+    '#type' => 'checkbox',
+    //'#options' => $uw_criteria_0,
+    '#default_value' => $_SESSION['reg_uw_criteria_0'],
+    '#title' => t('I am NOT a member of Employee Provident Fund Organization (EPFO) or Employee State Insurance Corporation (ESIC)'),  
+    );
+$form['declaration_statement']['uw_criteria_1'] = array(
+    '#type' => 'checkbox',
+    //'#options' => $uw_criteria_1,
+    '#default_value' => $_SESSION['reg_uw_criteria_1'],
+    '#title' => t('My average income per month is less than Rs. 15,000 per month'),  
+     '#required' => TRUE, 
+
+    );
+$form['declaration_statement']['uw_criteria_2'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('I am above 18 years of age'),  
+    '#required' => TRUE, 
+
+    );
+
+    
+   $form['declaration_statement']['auth_ministry'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('I also authorize Ministry of Labour and employment to share this information with the Ministries / Departments operating Social Security Schemes.'),  
+    );
+   
+   $form['declaration_statement']['furnish_adhar'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('I am not having/furnishing my Aadhar number.'),  
+    );
+   $form['declaration_statement']['pay_30'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('I am furnishing Rs 30/- for the registration and MPNSS card.'),  
+    );
+
+  $form['declaration_statement']['declare_kn'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('I have provided all the information here true to the best of my knowledge'),  
+    '#required' => TRUE,
+    );
+
+
+$form['submit'] = array(
+        '#type' => 'submit',
+        '#value' => t('Save'),
+    );
+
+
+  return $form; 
+//}
+  
+
+ }
+
+
+function go_to_delcation_form_submit($form, &$form_state) {
+
+  //echo "<pre>";
+ $ur =  drupal_get_query_parameters();
+ $ahlvalue = $ur['ahl_tin'];
+  //print_r($_GET);
+  
+  if (isset($form_state['values']['hof_photo'])) {
+    $file = file_load($form_state['values']['hof_photo']); 
+    $uri = file_create_url($file->uri);      
+    $photo_image =  base64_encode(file_get_contents($uri));
+
+       $state_val = $_SESSION['state_value'];
+       $r_u = $_SESSION['rural_urban_value'];
+      $query = db_select('online_reg_'.$r_u.'.individual_'.$state_val,'onl')      
+         ->fields('onl')
+         ->condition('onl.house_hold_id',arg(1))
+         ->condition('onl.hof','1')  
+         ->execute()->fetchAssoc();
+         
+
+      //$ahltin = $query['ahl_tin'];
+            $ahltin = $ahlvalue;
+
+
+   $num_updated = db_update('online_reg_'.$r_u.'.individual_'.$state_val) // Table name no longer needs {}
+  ->fields(array(
+    'photograph' => $photo_image,
+    'indian_ctzn' =>  $form_state['values']['ic_indian_citz'], 
+    'uw_worker'   =>  $form_state['values']['ic_uw'],
+    'epfo'    =>  $form_state['values']['uw_criteria_0'],
+    'authorize_minis' =>  $form_state['values']['auth_ministry'],  
+    'furnish_adhar'  =>  $form_state['values']['furnish_adhar'],
+    'pay_fee'     =>  $form_state['values']['pay_30'],
+    'age_18' =>   $form_state['values']['uw_criteria_2'],
+    'lessthan_10000' => $form_state['values']['uw_criteria_1'],
+  ))
+  ->condition('ahl_tin', $ahltin, '=')
+  ->execute();
+  
+   $file->status = FILE_STATUS_PERMANENT;
+   file_save($file);
+
+
+    $slip_arg =$query['ahl_tin'];
+   $form_state['redirect'] = 'uw/'.$ahltin.'/self_declation_form';
+
+  }
+} 
+
+function proceed_to_capture_image($form, &$form_state){
+  echo "<pre>";
+  print_r($form_state['values']);
+  $houseid  = $form_state['values']['household'];
+  $ahl = $form_state['values']['fm_ahl_tin'];
+ // die('sssss');
+   // $form_state['redirect'] = 'hof/'.$houseid.'/file_upload';
+
+$form_state['redirect'] = array('hof/'.$houseid.'/file_upload', array( 'query' => array('ahl_tin' => $ahl)));
+
+  // $edit = l('New Registration','labour-register', array('query' => array('house_h' => $house_hold),'html' => TRUE));
+
+  // $form['family-fielddet']['new_reg'] = array(
+  //  '#type' => 'item',
+  //  '#markup' => $edit,
+  // );
+  
+
+  //  $form['next'] = array(
+  //                 '#type' => 'link',
+  //                 '#title' => t('Proceed to capture Image'),
+  //                 '#prefix' => '<div class="family-update-nxt"><strong>',
+  //                 '#suffix' => '</strong></div>',  
+  //                 //'#weight' => 10,  
+  //                 '#href' => 'hof/'.$householdid.'/file_upload',
+  //                 '#validate' => array('go_to_delcation_form_validate'), 
+
+  //               );
+}
+
+
+
+
+
+
+              /****************************family wise code end*******************************************/

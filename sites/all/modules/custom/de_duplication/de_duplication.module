@@ -1,0 +1,2769 @@
+<?php
+
+function de_duplication_permission() {
+  return array(
+    'check deduplication' => array(
+      'title' => t('check deduplication'),
+    )
+  );
+}
+
+function de_duplication_menu(){
+    $items['check-deduplication'] = array(
+        'title' => 'De-Duplication of Registration Done at Village Level',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('de_duplication_person'),
+        'access arguments' => array('check deduplication'),
+
+       // 'access callback' => TRUE,
+     );
+    $items['duplicate-result'] = array(
+        'title' => 'De-Duplication of Registration Done at Village Level',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('duplicate_result_data'),
+        'access arguments' => array('check deduplication'),
+
+       // 'access callback' => TRUE,
+     );
+     $items['pan-duplication'] = array(
+        'title' => 'De-Duplication With PAN India',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('pan_duplication'),
+        'access arguments' => array('check deduplication'),
+
+       // 'access callback' => TRUE,
+     );
+    return $items;
+}
+
+
+function de_duplication_person($form, &$form_state){
+
+    
+  global $user;
+  $role = end($user->roles);
+  $user_info = user_load($user->uid);
+
+if($_SESSION['rural_urban_value_de'] !=''){
+  $session_rural = $_SESSION['rural_urban_value_de'];
+}
+   
+  $ru = $form_state['values']['rural_urban_de'];
+ if($ru == 'rural'){
+    $ru_val = 'R';
+ } else{
+        $ru_val = 'U';
+
+ }
+ //print $ru_val;
+    
+    $form['rural_urban_de'] = array(
+      '#type' => 'radios',
+      '#title' => t('Select Area'),
+       '#options' => array(
+         'rural' => t('Rural'),
+         'urban' => t('Urban'),
+        ),
+       '#required' => TRUE,
+      '#default_value' => $session_rural, 
+      '#prefix' => '<div id="wrapper_area_choice">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_rural_urban_de',
+            'wrapper' => 'wrapper_rurul_urban',
+            
+        ),
+
+      );
+
+     
+    if(($role == 'MOLE') ||($user->uid == 1)){
+            $state_list = _get_location('state','','','','',$ru_val);
+          }
+          if(($role == 'State') || ($role == 'District') || ($role == 'Tehsil') || ($role == 'Agent')){
+            $state_value = $user_info->field_state['und'][0]['value'];
+            $state_list_data = _get_location('state','','','','',$ru_val);
+            $state_list[$state_value] = $state_list_data[$state_value];
+          }
+   $session_state = ($_SESSION['state_value_de'] !='') ? $_SESSION['state_value_de']: key($state_list);
+
+   // $state_list = _get_location('state');
+    
+  $state_selected = isset($form_state['values']['state_de']) ? $form_state['values']['state_de'] : $session_state;
+    //$state_val = _drupal_session_read('state_value');
+  
+  
+//Add Code for agency role
+global $user;
+$aa = user_load($user->uid);
+$usermail = $user->mail;
+$querynode = db_select('node', 'n');
+              $querynode->fields('n');
+              $querynode->condition('type','agency','=');
+  $resultn = $querynode->execute();
+  while ($datanode = $resultn->fetchAssoc()) {
+//echo $datanode['nid'];
+
+ $node =  node_load($datanode['nid']);
+   $emailvalue = field_get_items('node', $node, 'field_email_id');
+   foreach ($emailvalue as $key => $email) {
+
+  $agency_detail = array();
+if($email['email'] == $usermail){
+ $agency_detail = array( 'agency_id' =>$datanode['nid'],
+                        'agency_mail' =>$email['email'],
+  ); 
+   }
+  
+} 
+  }
+ $query = db_select('agency_record', 'ag_r');
+              $query->fields('ag_r');
+              $query->condition('ag_r.agency',$agency_detail['agency_id'],'=');
+  $result = $query->execute()->fetchAssoc();
+
+//End code for agency role
+  
+  
+  if(($role == 'Agency')){
+            $state_value = $result['state'];
+            $state_list_data = _get_location('state','','','','',$ru_val);
+            $state_list[$state_value] = $state_list_data[$state_value];
+  }
+  $session_state = ($_SESSION['state_value_de'] !='') ? $_SESSION['state_value_de']: key($state_list);
+  $state_selected = isset($form_state['values']['state_de']) ? $form_state['values']['state_de'] : $session_state;
+      if(($role == 'MOLE')){
+    $form['state_de'] = array(
+        '#title' => 'State',
+        '#type' => 'select',
+        '#options' => $state_list,
+        '#default_value' => $state_selected,
+        '#required' => TRUE,
+        // '#ajax' => array(
+        //     'callback' => 'ajax_callback_state_de',
+        //     'wrapper' => 'wrapper_state_de',
+            
+        // ),
+        
+    );
+  }else{
+  $form['state_de'] = array(
+        '#title' => 'State',
+        '#type' => 'select',
+        '#options' => $state_list,
+        '#default_value' => $state_selected,
+        '#required' => TRUE,
+        '#ajax' => array(
+            'callback' => 'ajax_callback_state_de',
+            'wrapper' => 'wrapper_state_de',
+            
+        ),
+        
+    );
+
+  }
+if(($role != 'MOLE')){
+     if(($role == 'District') || ($role == 'Tehsil') || ($role == 'Agent')){
+          $district_value = $user_info->field_district['und'][0]['value'];
+          $district_list_data = _get_location('district',$state_selected,'','','',$ru_val);
+          $district_list[$district_value] = $district_list_data[$district_value];
+        }
+
+    if(($role == 'State')||($role == 'MOLE') ||(($user->uid == 1))){
+        $district_list = _get_location('district',$state_selected,'','','',$ru_val);
+    }
+    if(($role == 'Agency') ){
+          $district_value = $result['district'];
+          $district_list_data = _get_location('district',$state_selected,'','','',$ru_val);
+          $district_list[$district_value] = $district_list_data[$district_value];
+    }
+     $session_district = ($_SESSION['district_value_de'] !='') ? $_SESSION['district_value_de']: key($district_list);
+
+
+  //  $district_list = _get_location('district',$state_selected);
+    $district_selected = isset($form_state['values']['district_de']) ? $form_state['values']['district_de'] : $session_district;
+if(($role == 'State')){
+
+    $form['district_de'] = array(
+        '#title' => 'District',
+        '#type' => 'select',
+        '#options' => $district_list,
+        '#default_value' => $district_selected,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_state_de">',
+        '#suffix' => '</div>',
+        // '#ajax' => array(
+        //     'callback' => 'ajax_callback_district_de',
+        //     'wrapper' => 'wrapper_tehsil_de',
+            
+        // ),
+        
+    );
+  }else{
+
+$form['district_de'] = array(
+        '#title' => 'District',
+        '#type' => 'select',
+        '#options' => $district_list,
+        '#default_value' => $district_selected,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_state_de">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_district_de',
+            'wrapper' => 'wrapper_tehsil_de',
+            
+        ),
+        
+    );
+
+  }
+
+if(($role != 'State')){
+    if(($role == 'Tehsil') || ($role == 'Agent')){
+         $tehsil_value = $user_info->field_tehsil['und'][0]['value'];
+          $tahsil_list_data = _get_location('tehsil',$state_selected,$district_selected,'','',$ru_val);
+          $tehsil_list[$tehsil_value] = $tahsil_list_data[$tehsil_value];
+        }
+
+    if(($role == 'State') || ($role == 'District') || ($role == 'MOLE')||($user->uid == 1)){
+    $tehsil_list = _get_location('tehsil',$state_selected,$district_selected,'','',$ru_val);
+    }
+    
+    if( ($role == 'Agency')){
+    
+    $tehsil_value = $result['tehsil'];
+    $tehsil_list_data = _get_location('tehsil',$state_selected,$district_selected,'','',$ru_val);
+    $tehsil_list[$tehsil_value] = $tehsil_list_data[$tehsil_value];
+    $tehsil_selected = isset($form_state['values']['tehsil']) ? $form_state['values']['tehsil'] : key($tehsil_list); 
+
+    }
+
+     $session_tehsil = ($_SESSION['tehsil_value_de'] !='') ? $_SESSION['tehsil_value_de']: key($tehsil_list);
+
+    
+  //  $tehsil_list = _get_location('tehsil',$state_selected,$district_selected);
+    $tehsil_selected = isset($form_state['values']['tehsil_de']) ? $form_state['values']['tehsil_de'] : $session_tehsil; 
+    if(($role == 'District')){
+    $form['tehsil_de'] = array(
+        '#title' => 'Tehsil',
+        '#type' => 'select',
+        '#options' => $tehsil_list,
+        '#default_value' => $tehsil_selected,
+         '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_tehsil_de">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_tehsil_de',
+            'wrapper' => 'wrapper_village_de',
+            
+        )
+    );
+    }
+     else{
+    $form['tehsil_de'] = array(
+        '#title' => 'Tehsil',
+        '#type' => 'select',
+        '#options' => $tehsil_list,
+        '#default_value' => $tehsil_selected,
+         '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_tehsil_de">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_tehsil_de',
+            'wrapper' => 'wrapper_village_de',
+            
+        )
+    );
+    }
+
+        if(($role == 'Agent')){
+      
+         $village_value = $user_info->field_village['und'][0]['value'];
+          $village_list_data = _get_location('village',$state_selected,$district_selected,$tehsil_selected,'',$ru_val);
+          $village_list[$village_value] = $village_list_data[$village_value];
+        }
+
+    if(($role == 'Tehsil') || ($role == 'State') || ($role == 'District') || ($role == 'MOLE')||($user->uid == 1)){
+    $village_list = _get_location('village',$state_selected,$district_selected,$tehsil_selected,'',$ru_val);
+    }
+     if( ($role == 'Agency')){
+            $village_list_data = _get_location('village',$state_selected,$district_selected,$tehsil_selected,'',$ru_val);
+            $vill_value = explode(',', $result['village']);
+                 
+            $village_list = array();
+            foreach ($vill_value as $key => $village_data) {
+                    $village_list[$village_data] = $village_list_data[$village_data];
+            }
+            $vill_session_value = isset($_SESSION['dow_village_value']) ? $_SESSION['dow_village_value'] : key($village_list);
+            $village_selected = isset($form_state['values']['village']) ? $form_state['values']['village'] : $vill_session_value;
+
+    }
+    
+     $session_village = ($_SESSION['village_value_de'] !='') ? $_SESSION['village_value_de']: key($village_list);
+
+    //$village_list = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+    $village_selected = isset($form_state['values']['village_de']) ? $form_state['values']['village_de'] : $session_village;
+        if(($role == 'Tehsil')){
+
+    $form['village_de'] = array(
+        '#title' => 'Village/Town',
+        '#type' => 'select',
+        '#options' => $village_list,
+        '#default_value' => $village_selected,
+        //'#required' => TRUE,
+        '#prefix' => '<div id="wrapper_village_de">',
+        '#suffix' => '</div>',
+//        '#ajax' => array(
+//            'callback' => 'ajax_callback_state',
+//            'wrapper' = > 'wrapper_state',
+//            
+//        )
+    );
+  }
+}
+  }
+     
+ $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+
+ $form['reset'] = array(
+    '#type' => 'submit',
+    '#submit' => array('de_reset'),
+    '#value' => t('Reset'),
+  );
+
+if((!empty($session_rural)) && (empty($_SESSION['de_duplication']))){
+
+
+ $form['de-duplication'] = array(
+    '#type' => 'submit',
+    '#submit' => array('de_duplication'),
+    '#value' => t('De Duplication'),
+  );
+}
+
+ if((!empty($_SESSION['de_duplication'])) && (empty($_SESSION['de_duplication_main_db']))){
+
+ $form['de-duplication-main-db'] = array(
+    '#type' => 'submit',
+    '#submit' => array('de_duplication_main_db'),
+    '#value' => t('Check Duplicate with SSID Generated data'),
+  );
+}
+
+// if((!empty($_SESSION['de_duplication_main_db'])) && (empty($_SESSION['generate_ssid']))){
+
+//  $form['generate-ssid'] = array(
+//     '#type' => 'submit',
+//     '#submit' => array('generate_ssid'),
+//     '#value' => t('Generate SSID'),
+//   );
+// }
+ /*Start code to display the results*/
+ //$session_id = _drupal_session_read('house_id');
+ 
+ // $fst = 'registered_';
+  $fst = 'kit_ahltin_';
+
+ 
+ $sec = $_SESSION['rural_urban_value_de'];
+ $tbl = $fst.''.$sec;
+ if($session_district == 0){
+  $session_district ='';
+ }
+ if($session_tehsil == 0){
+  $session_tehsil ='';
+ }
+ if($session_village == 0){
+  $session_village ='';
+ }
+
+ if(!empty($sec)){
+  $person_name = $_SESSION['person_name'];
+
+ $house_hold_id = $session_state.''.$session_district.''.$session_tehsil.''.$session_village;
+ if(($role == 'MOLE')){
+   $header_uw = array('S.N','District','NO of Tehsil','Unique Records','Unique Record/Non unorganised','Deceased Record','Pending De duplication', 'Duplicate Record' ,'Duplication performed on record','Total Record');
+
+}
+if(($role == 'State')){
+   $header_uw = array('S.N','Tehsil','No. of Village','Unique Records','Unique Record/Non unorganised','Deceased Record','Pending De duplication', 'Duplicate Record' ,'Duplication performed on record','Total Record');
+
+}
+if(($role == 'District')){
+   $header_uw = array('S.N','Village','House Hold Member','Unique Records','Unique Record/Non unorganised','Deceased Record','Pending De duplication', 'Duplicate Record' ,'Duplication performed on record','Total Record');
+
+}
+if(($role == 'Tehsil')){
+   $header_uw = array('S.N','Village','House Hold Member','Unique Records','Unique Record/Non unorganised','Deceased Record','Pending De duplication', 'Duplicate Record' ,'Duplication performed on record','Total Record');
+
+}
+ 
+ 
+ $state = $_SESSION['state_value_de'];
+$district = $_SESSION['district_value_de'];
+$tehsil =$_SESSION['tehsil_value_de'];
+$village = $_SESSION['village_value_de'];
+
+if($district != 0 && $tehsil != 0 && $village == 0){
+		$ahl_tin = $state.$district.$tehsil;
+		$duplication_level = 'Tehsil';
+
+	} elseif($district != 0 && $tehsil == 0){
+		$ahl_tin = $state.$district;
+		$duplication_level = 'District';
+
+
+
+	} elseif ($district == 0) {
+		 $ahl_tin = $state;
+		 $duplication_level = 'State';
+
+
+	} else {
+		$ahl_tin = $state.$district.$tehsil.$village;
+		$duplication_level = 'Village';
+
+	}
+
+
+  
+
+
+
+  $rows = array();
+  
+
+                $i = 1;
+                          
+                            if($duplication_level == 'State'){
+
+                        	 //$state =  substr($data->duplication_level_value,0,2)."<br>";
+   							 $list = _get_location('state','','','','',$ru_val);
+   						     $duplicate_level_value = $list[$ahl_tin];
+
+                            }
+                            if($duplication_level == 'District'){
+                             	$state =  substr($ahl_tin,0,2);
+                            	$district =  substr($ahl_tin,2,4);
+                            	$liststate = _get_location('state','','','','',$ru_val);
+   						     	$statevalue = $liststate[$state];
+                            	$list = _get_location('district',$state,'','','',$ru_val);
+                            	$duplicate_level_value = $statevalue .'/'. $list[$district];
+
+                            }
+                            if($duplication_level == 'Tehsil'){
+                            	//print $ahl_tin;
+                            	$state =  substr($ahl_tin,0,2);
+                            	$district =  substr($ahl_tin,2,2);
+                            	$tehsil =  substr($ahl_tin,4,7);
+                            	$liststate = _get_location('state','','','','',$ru_val);
+   						     	$statevalue = $liststate[$state];
+                            	$listdistrict = _get_location('district',$state,'','','',$ru_val);
+                            	$districtvalue =  $listdistrict[$district];
+ 								$list = _get_location('tehsil',$state,$district,'','','',$ru_val);
+                            	$duplicate_level_value =  $statevalue .'/'. $districtvalue .'/'. $list[$tehsil];
+
+                            }
+                            if($duplication_level == 'Village'){
+								$state =  substr($ahl_tin,0,2);
+                                $district =  substr($ahl_tin,2,2);
+                            	$tehsil =  substr($ahl_tin,4,3);
+                            	$village =  substr($ahl_tin,7,4);
+
+                            	$liststate = _get_location('state','','','','',$ru_val);
+   						     	$statevalue = $liststate[$state];
+                            	$listdistrict = _get_location('district',$state,'','','',$ru_val);
+                            	$districtvalue =  $listdistrict[$district];
+ 								$listtehsil = _get_location('tehsil',$state,$district);
+                            	$tehsilvalue =  $listtehsil[$tehsil];
+
+                            	$list = _get_location('village',$state,$district,$tehsil,'','',$ru_val);
+                            	$duplicate_level_value =  $statevalue .'/'. $districtvalue .'/'. $tehsilvalue .'/'. $list[$village];
+
+                            }
+                              
+                if(($role == 'MOLE')){
+
+                                $districtlist = _get_location('district',$state,'','','',$ru_val);
+                               
+                                foreach ($districtlist as $key => $value) {
+                                  if($value!='Select'){
+                                    
+                                      $no_of_tehsil =  _get_location_count_block($duplication_level, $ahl_tin,$tbl ,$state,$key);
+                                     if($no_of_tehsil!=0){
+                                     $num_of_unique_record = duplicate_record_result('national_deduplication',$ahl_tin,$state ,$key);
+                                      $num_of_unique_non_unorganised = unique_record_non_un('fresh_records',$ahl_tin,$state ,$key);
+                                       $diseased_people = diseased_people('fresh_records',$ahl_tin,$state ,$key);
+                                     $num_of_duplicate_failed = duplicate_record_result('duplicate_recods',$ahl_tin,$state,$key);
+                                     $duplicate = l($num_of_duplicate_failed,'duplicate-result', array('query' => array('mode' => $key),'html' => TRUE));
+                                     $num_of_pending_deduplication = duplicate_pending_record_result($tbl,$ahl_tin,$state,'pending',$key);
+                                    $num_duplicated_performed_record = total_record_result($tbl,$ahl_tin,$state,'total',$key);
+                                    $num_of_total_record = $num_of_pending_deduplication + $num_duplicated_performed_record;
+                                        }
+                                        else{
+
+                                        $num_of_unique_record = 0;
+                                         $num_of_duplicate_failed = 0;
+                                         $duplicate = 0;
+                                         $num_of_pending_deduplication = 0;
+                                        $num_of_total_record = 0;
+                                        $num_of_unique_non_unorganised =0;
+                                        $num_duplicated_performed_record =0;
+                                        $diseased_people =0;
+
+
+                                        }
+
+                                      $rows[] = array(
+                              $i, 
+                              //$duplicate_level_value, 
+ 
+                              $value,    
+                              $no_of_tehsil,
+                              $num_of_unique_record,
+                              $num_of_unique_non_unorganised,
+                              $diseased_people,
+                              $num_of_pending_deduplication,
+                              $duplicate,
+                              $num_duplicated_performed_record,
+                              $num_of_total_record,
+                                                            
+                          );
+                              $i++;
+
+                                    }
+//print_r($value);               
+
+  }
+  
+  
+}
+
+
+ if(($role == 'State')){
+
+                           $tehsillist = _get_location('tehsil',$state,$district,'','','',$ru_val);
+                               
+                                foreach ($tehsillist as $key => $value) {
+                                  if($value!='Select'){
+                                    
+                                     $no_of_village =  number_of_village($tbl,$ahl_tin,$state,$district,$key);
+                                    if($no_of_village!=0){
+                                     $num_of_unique_record = duplicate_unique_record_result('national_deduplication',$ahl_tin,$state ,$district,$key);
+                                     $num_of_unique_non_unorganised = unique_record_non_un_state('fresh_records',$ahl_tin,$state ,$district,$key);
+                                      $diseased_people = diseased_people_state('fresh_records',$ahl_tin,$state ,$district,$key);
+                                     $num_of_duplicate_failed = duplicate_unique_record_result('duplicate_recods',$ahl_tin,$state,$district,$key);
+                                     $duplicate = l($num_of_duplicate_failed,'duplicate-result', array('query' => array('mode' => $key),'html' => TRUE));
+                                     $num_of_pending_deduplication = duplicate_pending_record__tehsil_result($tbl,$ahl_tin,$state,'pending',$district,$key);
+                                    $num_duplicated_performed_record = total_record_result_tehsil($tbl,$ahl_tin,$state,'total',$district,$key);
+                                     $num_of_total_record = $num_of_pending_deduplication + $num_duplicated_performed_record;
+                                      }
+                                      else {
+                                         $num_of_unique_record = 0;
+                                         $num_of_duplicate_failed = 0;
+                                         $duplicate = 0;
+                                         $num_of_pending_deduplication = 0;
+                                         $num_of_total_record = 0;
+                                         $num_of_unique_non_unorganised = 0;
+                                         $num_duplicated_performed_record = 0;
+                                         $diseased_people =0;
+
+                                      }
+
+                                      $rows[] = array(
+                              $i, 
+                              //$duplicate_level_value,
+  
+                              $value,    
+                              $no_of_village,
+                              $num_of_unique_record,
+                              $num_of_unique_non_unorganised,
+                              $diseased_people,
+                              $num_of_pending_deduplication,
+                              $duplicate,
+                              $num_duplicated_performed_record,
+                              $num_of_total_record,
+                                                            
+                          );
+                              $i++;
+
+                                    }
+//print_r($value);               
+
+  }
+}
+
+if(($role == 'District')){
+  // print $state;
+  // print $district;
+  // print $tehsil;
+ 
+  // print $ru_val;
+                              $villagelist = _get_location('village',$state,$district,$tehsil,'',$ru_val);
+                              // echo "<pre>";
+                              // print_r($villagelist);
+                               
+                                foreach ($villagelist as $key => $value) {
+                                  if($value!='Select'){
+
+                                    
+                                     $no_of_house_hold =  number_of_house_hold($tbl,$ahl_tin,$state,$district,$tehsil,$key);
+                                     if($no_of_house_hold!=0){
+                                     $num_of_unique_record = duplicate_unique_record_result_village('national_deduplication',$ahl_tin,$state ,$district,$tehsil,$key);
+                                     $num_of_unique_non_unorganised = unique_record_non_un_vill('fresh_records',$ahl_tin,$state ,$district,$tehsil,$key);
+                                      $diseased_people = diseased_people_vill('fresh_records',$ahl_tin,$state ,$district,$tehsil,$key);
+                                     $num_of_duplicate_failed = duplicate_unique_record_result_village('duplicate_recods',$ahl_tin,$state,$district,$tehsil,$key);
+                                     $duplicate = l($num_of_duplicate_failed,'duplicate-result', array('query' => array('mode' => $key),'html' => TRUE));
+                                     $num_of_pending_deduplication = duplicate_pending_record__village_result($tbl,$ahl_tin,$state,'pending',$district,$tehsil,$key);
+                                    $num_duplicated_performed_record = total_record_result_village($tbl,$ahl_tin,$state,'total',$district,$tehsil,$key);
+                                 $num_of_total_record = $num_of_pending_deduplication + $num_duplicated_performed_record;
+
+
+
+                                                                          }
+                                      else {
+                                         $num_of_unique_record = 0;
+                                         $num_of_duplicate_failed = 0;
+                                         $duplicate = 0;
+                                         $num_of_pending_deduplication = 0;
+                                         $num_of_total_record = 0;
+                                         $num_of_unique_non_unorganised = 0;
+                                         $num_duplicated_performed_record = 0;
+                                         $diseased_people =0;
+
+                                      }
+
+
+                                      $rows[] = array(
+                              $i, 
+                              //$duplicate_level_value,  
+                              $value,    
+                              $no_of_house_hold,
+                              $num_of_unique_record,
+                              $num_of_unique_non_unorganised,
+                              $diseased_people,
+                              $num_of_pending_deduplication,
+                              $duplicate,
+                              $num_duplicated_performed_record,
+                              $num_of_total_record,
+                                                            
+                          );
+                              $i++;
+
+                                    }
+//print_r($value);               
+
+  }
+}
+
+
+
+
+if(($role == 'Tehsil')){
+  
+                              $villagelist = _get_location('village',$state,$district,$tehsil,'',$ru_val);
+                              
+                               $value = $villagelist[$village];
+
+                                    
+                                     $no_of_house_hold =  number_of_house_hold($tbl,$ahl_tin,$state,$district,$tehsil,$village);
+                                     if($no_of_house_hold!=0){
+                                     $num_of_unique_record = duplicate_unique_record_result_village('national_deduplication',$ahl_tin,$state ,$district,$tehsil,$village);
+                                     $num_of_unique_non_unorganised = unique_record_non_un_vill('fresh_records',$ahl_tin,$state ,$district,$tehsil,$village);
+                                     $diseased_people = diseased_people_vill('fresh_records',$ahl_tin,$state ,$district,$tehsil,$village);
+                                     $num_of_duplicate_failed = duplicate_unique_record_result_village('duplicate_recods',$ahl_tin,$state,$district,$tehsil,$village);
+                                     $duplicate = l($num_of_duplicate_failed,'duplicate-result', array('query' => array('mode' => $key),'html' => TRUE));
+                                     $num_of_pending_deduplication = duplicate_pending_record__village_result($tbl,$ahl_tin,$state,'pending',$district,$tehsil,$village);
+                                    $num_duplicated_performed_record = total_record_result_village($tbl,$ahl_tin,$state,'total',$district,$tehsil,$village);
+                                 $num_of_total_record = $num_of_pending_deduplication + $num_duplicated_performed_record;
+
+
+
+                                                                          }
+                                      else {
+                                         $num_of_unique_record = 0;
+                                         $num_of_duplicate_failed = 0;
+                                         $duplicate = 0;
+                                         $num_of_pending_deduplication = 0;
+                                         $num_of_total_record = 0;
+                                         $num_of_unique_non_unorganised = 0;
+                                         $num_duplicated_performed_record = 0;
+                                         $diseased_people =0;
+
+                                      }
+
+
+                                      $rows[] = array(
+                              $i, 
+                              //$duplicate_level_value,  
+                              $value,    
+                              $no_of_house_hold,
+                              $num_of_unique_record,
+                              $num_of_unique_non_unorganised,
+                              $diseased_people,
+                              $num_of_pending_deduplication,
+                              $duplicate,
+                              $num_duplicated_performed_record,
+                              $num_of_total_record,
+                                                            
+                          );
+                              $i++;
+
+                                    
+//print_r($value);               
+
+  
+}
+
+                              
+                          
+                       // }
+                        $form['table'] = array(
+                            '#theme' => 'table',
+                            '#header' => $header_uw,
+                            '#rows' => $rows,
+                            '#empty' => t('Table has no row!')
+                          );
+
+           $form['pager'] = array('#markup' => theme('pager'));
+
+}  
+
+    return $form;
+    
+}
+
+function de_duplication_person_validate($form,$form_state){
+  //echo "<pre>";
+  //print_r($form_state['values']);
+    
+    $choose_state = $form_state['values']['state_de'];
+    $choose_ru_ur = $form_state['values']['rural_urban_de'];
+    $pre_secc = 'registered_';
+    $tbl = $pre_secc.''.$choose_ru_ur;
+    
+   $new_tbl_name = $tbl.".individual_".$choose_state;
+
+    
+    if(db_table_exists($new_tbl_name)){
+             //form_set_error('', t('State table Does not exist'));  
+    }else{
+        form_set_error('', t('Table Does Not Exist'));  
+    }
+    //form_set_error('', t('sfsdf sdf sdf sdf')); 
+}
+
+function de_duplication_person_submit($form, &$form_state){
+  
+    
+ if($form_state['values']['state_de'] != ''){
+           $_SESSION['state_value_de'] =  $form_state['values']['state_de'];
+
+       }
+       if ($form_state['values']['district_de'] != '') {
+            $_SESSION['district_value_de'] =  $form_state['values']['district_de'];
+           
+       }
+       if ($form_state['values']['tehsil_de'] != '') {
+                    $_SESSION['tehsil_value_de'] =  $form_state['values']['tehsil_de'];
+
+       }
+       if ($form_state['values']['village_de'] != '') {
+
+                 $_SESSION['village_value_de'] =  $form_state['values']['village_de'];
+
+       }
+        
+        if ($form_state['values']['rural_urban_de'] != '') {
+
+                 $_SESSION['rural_urban_value_de'] =  $form_state['values']['rural_urban_de'];
+
+       }
+
+
+
+}
+
+function de_duplication($form, &$form_state){
+
+  $fst = 'kit_ahltin_';
+ $sec = $_SESSION['rural_urban_value_de'];
+ $tbl = $fst.''.$sec;
+
+ $state = $form_state['values']['state_de'];
+ $district = $form_state['values']['district_de'];
+ $tehsil =$form_state['values']['tehsil_de'];
+ $village = $form_state['values']['village_de'];
+
+	// if($district != 0 && $tehsil != 0 && $village == 0){
+	// 	$ahl_tin = $state.$district.$tehsil;
+	// 	$duplication_level = 'Tehsil';
+	// 	$duplication_level_value = $ahl_tin;
+
+	// } elseif($district != 0 && $tehsil == 0){
+	// 	$ahl_tin = $state.$district;
+	// 	$duplication_level = 'District';
+	// 	$duplication_level_value = $ahl_tin;
+
+
+
+	// } elseif ($district == 0) {
+	// 	 $ahl_tin = $state;
+	// 	 $duplication_level = 'State';
+	// 	 $duplication_level_value = $ahl_tin;
+
+
+	// } else {
+	// 	$ahl_tin = $state.$district.$tehsil.$village;
+	// 	$duplication_level = 'Village';
+	// 	$duplication_level_value = $ahl_tin;
+
+	// }
+
+
+  if((!empty($state)) && (!empty($district)) && (!empty($tehsil)) ){
+   $ahl_tin = $state.$district.$tehsil;
+   $duplication_level = 'Tehsil';
+   $duplication_level_value = $ahl_tin;
+
+  } elseif((!empty($state)) && (!empty($district))){
+   $ahl_tin = $state.$district;
+   $duplication_level = 'District';
+   $duplication_level_value = $ahl_tin;
+
+
+
+  } elseif (!empty($state)) {
+    $ahl_tin = $state;
+    $duplication_level = 'State';
+    $duplication_level_value = $ahl_tin;
+
+
+  } else {
+   $ahl_tin = $state.$district.$tehsil.$village;
+   $duplication_level = 'Village';
+   $duplication_level_value = $ahl_tin;
+
+  }
+
+
+
+ //$num_of_pending_total_deduplication = duplicate_pending_record_result($tbl,$ahl_tin,$state,'pending' );
+  $num_of_pending_deduplication = duplicate_pending_record_result($tbl,$ahl_tin,$state,'doc_uploaded');
+
+if($num_of_pending_deduplication !=0){
+
+         $_SESSION['de_duplication'] =  'de_duplication';
+               $current_year = date('Y')-18;
+
+ $query = db_select($tbl.".individual_".$state, "n");
+ $query->fields('n' , array('ahl_tin'));
+ //$query->addfield('n' ,'ahl_tin','ahl_tin');  
+        $query->condition('n.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE'); 
+        $query->condition('n.de_depulication_status', '0', '='); 
+		    $query->Condition('n.ahl_tin', '', '!=');  
+        $query->condition('n.upload_document', '1', '=');     
+        $query->groupBy("n.ahl_tin");
+        $query->having('COUNT(n.ahl_tin) > 1');
+       //$query->addExpression('COUNT(n.ahl_tin)' ,'count_duplicate_ahl_tin_no');
+
+  $result =  $query->execute();
+
+    $batch = array(
+      'title' => t('data is De duplicated ...'),
+      'operations' => array(),
+      'init_message' => t('Commencing'),
+      'progress_message' => t('Processed @current out of @total.'),
+      'error_message' => t('An error occurred during processing'),
+      'finished' => 'deduplication_import_finished',
+    );
+
+
+$count_dublicate ='';
+    $ahl_tin_no = array();
+  while($data = $result->fetchAssoc()){
+            $arraykeyval  = array_values($data);
+            $ahl_tin_no = array_merge($ahl_tin_no ,$arraykeyval);
+
+}
+ //print_r($ahl_tin_no);
+//die('ssss');
+//echo "<pre>";
+
+    // $ahl_tin_no = array();
+    // foreach ($data as $key => $value) {
+      
+    //   $ahl_tin_no = array_merge($ahl_tin_no ,$value);
+    //      print_r($ahl_tin_no);
+
+    // }
+   //print_r($ahl_tin_no);
+   // $count_dublicate = $data['count_duplicate_ahl_tin_no'];
+   //  if(!empty($data['ahl_tin'])){
+
+//echo "<pre>";
+   $stor_ahl ='';
+   foreach ($ahl_tin_no as $key => $ahl_tin_val) {
+                           $stor_ahl .= $ahl_tin_val.",";
+
+   
+          /**************** Duplicate AHL TIN NO from  Table ********************/
+      $current_year = date('Y')-18;
+ $ahl_duplicate_query = db_select($tbl.".individual_".$state, "ag")    
+                          ->fields('ag')
+                           ->condition('ag.ahl_tin', $ahl_tin_val, '=')
+                          ->condition('ag.de_depulication_status', '0', '=')
+                         //->condition('ag.yob', $current_year, '<=') 
+                          ->condition('ag.upload_document', '1', '=')     
+
+
+                          ->execute();
+                          $duplicate_ahl_result =array();
+                        //  $dup_ahl_n =array();
+                     while($ahl_resultduplicate = $ahl_duplicate_query->fetchAssoc()){   
+                       $batch['operations'][] = array('_deduplication_remember_filename', $ahl_resultduplicate ) ;
+                       $remark = ' Duplicate AHL TIN';
+                       $ahl_resultduplicate['remark'] = $remark;
+                       $duplicate_ahl_result[] = $ahl_resultduplicate;
+                    } 
+                    // print_r($duplicate_ahl_result);
+                    // die('asasas');
+                     
+               duplicate_data('duplicate_recods' , $duplicate_ahl_result, $state);
+
+       
+
+   }
+        $mul_ahl_no =  rtrim($stor_ahl,',');
+       $aa  = explode(',', $mul_ahl_no);
+       // print_r($aa);
+       // die('ssq');
+      // echo "<pre>";
+
+/********************fresh Ahl Tin Data *****************************/
+      $current_year = date('Y')-18;
+
+
+   $fresh_ahl_tin_record = db_select($tbl.".individual_".$state, "ad")    
+                          ->fields('ad')
+                           ->condition('ad.ahl_tin', '', '!=')
+                          ->condition('ad.ahl_tin', $aa, 'NOT IN')
+                          ->condition('ad.de_depulication_status', '0', '=')
+                          //->condition('ad.yob', $current_year, '<=') 
+                            ->condition('ad.upload_document', '1', '=')    
+
+                          ->execute();
+                          $duplicate_fresh_ahl_result =array();
+                     while($fresh_ahl_resultduplicate = $fresh_ahl_tin_record->fetchAssoc()){   
+                    // print_r($fresh_ahl_resultduplicate);
+                       $batch['operations'][] = array('_deduplication_remember_filename', $fresh_ahl_resultduplicate ) ;
+                       $remark = 'AHL TIN';
+                       $fresh_ahl_resultduplicate['remark'] = $remark;
+                       $duplicate_fresh_ahl_result[] = $fresh_ahl_resultduplicate;
+                    } 
+                    //print_r($duplicate_fresh_ahl_result);die('gff');
+                    foreach ($duplicate_fresh_ahl_result as $key => $ahlvalue) {
+                    $whitelist = array('aadhaar');
+                    $filtered[] = array_intersect_key( $ahlvalue, array_flip( $whitelist ) );
+                    $whitelist2 = array('ahl_tin','aadhaar');
+                    $filtered2[] = array_intersect_key( $ahlvalue, array_flip( $whitelist2 ) );
+
+                    }
+                    //print_r($filtered2);
+                    $merge_aadhaar = array();
+                    foreach ($filtered as $key => $filteredvalue) {
+                            $aa = array_values($filteredvalue);
+                           $merge_aadhaar = array_merge($merge_aadhaar,$aa);
+                        }
+
+                        $dup_aadhaar = array(); // storing duplicate aadhaar cariable 
+                      foreach(array_count_values($merge_aadhaar) as $val => $c){
+                                     if($c > 1){ 
+                                               $dup_aadhaar[] = $val;
+                                              }
+                                   }
+
+                                  
+//**************************Removing duplicate aadhaar from array************************************/
+
+                 foreach ($dup_aadhaar as  $aadvalue) {
+                            $co = count($filtered2); 
+                             for ($i=0; $i < $co; $i++) { 
+                              if($aadvalue !=''){
+                                    if($filtered2[$i]['aadhaar'] == $aadvalue){
+                                             unset($filtered2[$i]);
+                                           }
+                                             }
+                                        }
+                                    }
+
+           ////////***************************fresh data  to insert************************///      
+   
+            $fresh_result = array_values($filtered2);
+            echo '<pre>';
+           //  print_r($fresh_result);
+             //die('ssss');
+
+            //$fresh_result_value = array();
+            foreach ($fresh_result as $key => $fresh_resultvalue) {
+                          $fresh_query = db_select($tbl.".individual_".$state, "fq")  
+                           ->fields('fq')
+                           ->condition('fq.ahl_tin', $fresh_resultvalue['ahl_tin'], '=')
+                          ->condition('fq.de_depulication_status', '0', '=')
+                          ->condition('fq.upload_document', '1', '=')     
+
+                           ->execute()->fetchAssoc();
+                    // while ($fresh_result = $fresh_query->fetchAssoc()) {  
+                         //$batch['operations'][] = array('_deduplication_remember_filename', $fresh_result );
+                          $fresh_result_value[] = $fresh_query;
+                       // }
+
+                        //print_r($fresh_result_value);
+//                       // die('sss');
+//                                   
+
+               // $batch['operations'][] = array('_deduplication_import_line', array(array_map('base64_encode', $line)));          
+                 }
+                // print_r($fresh_result_value);
+                   fresh_data('fresh_records' , $fresh_result_value ,$state);
+
+                                      //  die('sss');
+
+//print_r($fresh_result_value);
+
+            //***************Duplicate aadhaar Data***********************/
+                $duplicate_aadhaar_data = array();
+                foreach ($dup_aadhaar as $aadhaarduplicate) {
+
+if($aadhaarduplicate != ''){
+        $current_year = date('Y')-18;
+
+                        $dupl_aadhaarquery = db_select($tbl.".individual_".$state, "fq")  
+                           ->fields('fq')
+                           ->condition('fq.ahl_tin', '', '!=')
+                          ->condition('fq.ahl_tin', $aa, 'NOT IN')
+                           ->condition('fq.aadhaar', $aadhaarduplicate, '=')
+                          ->condition('fq.de_depulication_status', '0', '=')
+                          ->condition('fq.upload_document', '1', '=')     
+
+                           //->condition('fq.yob', $current_year, '<=') 
+
+                           ->execute();
+                     while ($dupaadharr_result = $dupl_aadhaarquery->fetchAssoc()) {  
+                         $batch['operations'][] = array('_deduplication_remember_filename', $dupaadharr_result );
+                         $remark = 'Duplicate AAdhaar';
+                       $dupaadharr_result['remark'] = $remark;
+                          $duplicate_aadhaar_data[] = $dupaadharr_result;
+                        }
+
+                }
+              }
+                    
+                   // print_r($duplicate_aadhaar_data);           
+                      duplicate_data('duplicate_recods' , $duplicate_aadhaar_data, $state);
+
+
+  			$num_updated = db_update($tbl.".individual_".$state)
+                             ->fields(array(
+                                'de_depulication_status' => 1,
+                              ))
+                            ->condition('ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+                             ->condition('upload_document', '1', '=')     
+
+                            ->execute();
+
+              $count_dublicate  = $count_dublicate + $data['count_duplicate_aadhaar_no'];
+
+ // }
+  //die('ssss');
+
+		batch_set($batch);
+  }
+  else{
+     $num_of_pending_total_deduplication = duplicate_pending_record_result($tbl,$ahl_tin,$state,'pending' );
+     if($num_of_pending_total_deduplication != 0){
+
+           form_set_error('de_duplication', t('De-Duplication can not be performed because Signed Declaration form has not been uploaded into the system of individuals'));
+
+     }else{
+     form_set_error('de_duplication', t('No Pending Record for de duplication'));
+   }
+  }
+
+  }
+
+
+function de_duplication_main_db($form, &$form_state){
+
+
+ $fst = 'kit_ahltin_';
+ $sec = $_SESSION['rural_urban_value_de'];
+ $tbl = $fst.''.$sec;
+
+  global $user;
+  $role = end($user->roles);
+$state = $form_state['values']['state_de'];
+$district = $form_state['values']['district_de'];
+$tehsil =$form_state['values']['tehsil_de'];
+$village = $form_state['values']['village_de'];
+
+	if($district != 0 && $tehsil != 0 && $village == 0){
+		$ahl_tin = $state.$district.$tehsil;
+		$duplication_level = 'Tehsil';
+		$duplication_level_value = $ahl_tin;
+
+	} elseif($district != 0 && $tehsil == 0){
+		$ahl_tin = $state.$district;
+		$duplication_level = 'District';
+		$duplication_level_value = $ahl_tin;
+
+
+
+	} elseif ($district == 0) {
+		 $ahl_tin = $state;
+		 $duplication_level = 'State';
+		 $duplication_level_value = $ahl_tin;
+
+
+	} else {
+		$ahl_tin = $state.$district.$tehsil.$village;
+		$duplication_level = 'Village';
+		$duplication_level_value = $ahl_tin;
+
+	}
+
+
+   $batch = array(
+      'title' => t('data is De duplicated with SSID Generated Table ...'),
+      'operations' => array(),
+      'init_message' => t('Commencing'),
+      'progress_message' => t('Processed @current out of @total.'),
+      'error_message' => t('An error occurred during processing'),
+      'finished' => 'deduplication_import_finished',
+    );
+
+         $_SESSION['de_duplication_main_db'] =  'de_duplication_main_db';
+
+          $ssidtable_query = db_select("national_deduplication".".fresh_records", "ssid")    
+                          ->fields('ssid')
+                          ->execute();
+                          $ssidtabahl_tin = array();
+                          $ssidtabaadhar =array();
+                          $ssidtabname = array();
+                          $ssidtabf_name =array();
+                          $ssid_election_card_no = array();
+                          $ssid_bank_ac_no = array();
+                          $mobile_no = array();
+                          while($ssid_generated_data  = $ssidtable_query->fetchAssoc()){
+                            $ssidtabahl_tin[] = $ssid_generated_data['ahl_tin'];
+                            if(!empty($ssid_generated_data['aadhaar'])){
+                            $ssidtabaadhar[] = $ssid_generated_data['aadhaar'];
+                        }
+                            $ssidtabname[] = $ssid_generated_data['name'];
+                            $ssidtabf_name[] = $ssid_generated_data['fathername'];
+                          if(!empty($ssid_generated_data['election_card_no'])){
+                            $ssid_election_card_no[] = $ssid_generated_data['election_card_no'];
+                             }
+                           if(!empty($ssid_generated_data['election_card_no'])){
+                            $ssid_bank_ac_no[] = $ssid_generated_data['bank_account_no']; 
+                          }
+                         if(!empty($ssid_generated_data['election_card_no'])){
+                            $mobile_no[] = $ssid_generated_data['mobile_num'];
+                          }
+
+                          }
+                   if(($role == 'MOLE')){
+                        $freshtable_query = db_select("fresh_records".".individual_".$state, "fr")    
+                              ->fields('fr')
+                              ->condition('fr.statecode', $state, '=')
+                              ->condition('fr.de_depulication_status', '0', '=')
+                             // ->condition('fr.unorganised', '1', '=')
+                              ->execute(); 
+                              } 
+                                if(($role == 'State')){
+                     $freshtable_query = db_select("fresh_records".".individual_".$state, "fr")    
+                              ->fields('fr')
+                              ->condition('fr.statecode', $state, '=')
+                              ->condition('fr.districtcode', $district, '=')
+                              ->condition('fr.de_depulication_status', '0', '=')
+                              ->execute(); 
+                              }  
+                                if(($role == 'District')){
+                     $freshtable_query = db_select("fresh_records".".individual_".$state, "fr")    
+                                ->fields('fr')
+                                ->condition('fr.statecode', $state, '=')
+                                ->condition('fr.districtcode', $district, '=')
+                                ->condition('fr.tehsilcode', $tehsil, '=')
+                                ->condition('fr.de_depulication_status', '0', '=')
+                                ->execute(); 
+                              }                              
+                               
+                                 $duplicate_record ='';
+                                 $fresh_record ='';
+                        while($freshtabledata  = $freshtable_query->fetchAssoc()){
+                        	
+                           $batch['operations'][] = array('_deduplication_remember_filename', $freshtabledata ) ;
+                                
+                                $freshtabahl_tin =$freshtabledata['ahl_tin'];
+                                $freshtabaadhaar = $freshtabledata['aadhaar'];
+                                $freshtabname = $freshtabledata['name'];
+                                $frestabf_name = $freshtabledata['fathername'];
+                                $freshmobile_no = $freshtabledata['mobile_num'];
+                                $freshbank_ac_no = $freshtabledata['bank_account_no'];
+                                $freshelection_no = $freshtabledata['election_card_no'];
+                                
+                                if((in_array($freshtabahl_tin, $ssidtabahl_tin,TRUE)))
+                                  {  
+                                    //echo "jjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjjj";
+                                        $remark = 'Duplicate AHL TIN by Dharmend';
+                                        $freshtabledata['remark'] = $remark;
+                                        insert_fres_dupl_rec('duplicate_recods', $freshtabledata,$state);                    
+                                       // $duplicate_record = $duplicate_record+1;
+
+                                } 
+                                elseif(in_array($freshtabaadhaar, $ssidtabaadhar, TRUE)){
+
+                                	$remark = 'Duplicate Aadhaar';
+                                     $freshtabledata['remark'] = $remark;
+                                    insert_fres_dupl_rec('duplicate_recods', $freshtabledata,$state);                    
+                                	$duplicate_record = $duplicate_record+1;
+                                }
+                                
+                                elseif((in_array($freshbank_ac_no, $ssid_bank_ac_no, TRUE))){
+
+                                	 $remark = 'Duplicate Bank A/C No.';
+                                     $freshtabledata['remark'] = $remark;
+                                  	 insert_fres_dupl_rec('duplicate_recods', $freshtabledata, $state);                    
+                               		 $duplicate_record = $duplicate_record+1;
+                                }
+                                elseif((in_array($freshelection_no, $ssid_election_card_no, TRUE))){
+
+                                	 $remark = 'Duplicate Election card No';
+                                     $freshtabledata['remark'] = $remark;
+                                  	 insert_fres_dupl_rec('duplicate_recods', $freshtabledata,$state);                    
+                               		 $duplicate_record = $duplicate_record+1;
+                                }
+                               else{
+                                 insert_fres_dupl_rec('national_deduplication', $freshtabledata, $state);
+
+//                                  $num_updated = db_update("fresh_records.individual_".$state)
+//                              ->fields(array(
+//                                 'de_depulication_status' => 1,
+//                               ))
+//                             ->condition('ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+//                             ->condition('upload_document', '1', '=')
+//                             ->execute();    
+
+
+
+
+if($role == 'MOLE'){
+  $num_updated = db_update("fresh_records.individual_".$state)
+                             ->fields(array(
+                                'de_depulication_status' => 1,
+                              ))
+  ->condition('statecode', $state , '=')
+
+  ->execute();
+
+} 
+if($role == 'State'){
+
+   $num_updated = db_update("fresh_records.individual_".$state)
+                             ->fields(array(
+                                'de_depulication_status' => 1,
+                              ))
+  ->condition('statecode',$state , '=')
+  ->condition('districtcode',$district, '=')
+  ->execute();
+
+}
+ if($role == 'District'){
+
+   $num_updated = db_update("fresh_records.individual_".$state)
+                             ->fields(array(
+                                'de_depulication_status' => 1,
+                              ))
+  ->condition('statecode', $state, '=')
+  ->condition('districtcode', $district , '=')
+  ->condition('tehsilcode', $tehsil , '=')
+  ->execute();
+}
+
+
+                                   // $idin_value =  $ssid_suffix++;
+                                   $fresh_record = $fresh_record+1;
+                                }
+
+                       }
+                       //die('HHHHHH');
+                       
+ 						$date = date('d-m-Y');
+
+ 						if($fresh_record == ''){
+ 							$fres_rcord_data = 0;
+ 						}else{
+ 							$fres_rcord_data = $fresh_record;
+ 						}
+ 						if($duplicate_record == ''){
+ 							$duplicate_record_data = 0;
+ 						} else {
+ 						$duplicate_record_data = $duplicate_record;
+ 						}
+ 						
+ 						
+ 						$result = db_insert('de_duplication'.'.de_duplication_record')
+				                  ->fields(array(
+				                      'duplicate_record' => $duplicate_record_data,
+				                      'fresh_record' => $fres_rcord_data,
+				                      'duplication_level' => $duplication_level,
+				                      'duplication_level_value' => $duplication_level_value,
+				                      'de_duplication' => 'de duplication with SSID generated data',
+				                      'date' => $date,
+				                    
+				                  ))
+				                ->execute();
+
+               $batch['operations'][] = array('_deduplication_import_line', array(array_map('base64_encode', $line)));        
+               batch_set($batch);
+
+    }
+
+function generate_ssid($form, &$form_state){
+           $_SESSION['generate_ssid'] =  'generate_ssid';
+
+}
+
+
+function de_reset(){
+
+       
+            if($_SESSION['rural_urban_value_de'] !=''){
+              unset($_SESSION['rural_urban_value_de']);
+            }
+
+            if($_SESSION['state_value_de'] !=''){
+              unset($_SESSION['state_value_de']);
+            }
+            if($_SESSION['district_value_de'] !=''){
+              unset($_SESSION['district_value_de']);
+            }
+            if($_SESSION['tehsil_value_de'] !=''){
+               unset($_SESSION['tehsil_value_de']);
+            }
+            if($_SESSION['village_value_de'] !=''){
+              unset($_SESSION['village_value_de']);
+            }
+            if($_SESSION['de_duplication'] !=''){
+              unset($_SESSION['de_duplication']);
+            }
+
+             if($_SESSION['de_duplication_main_db'] !=''){
+              unset($_SESSION['de_duplication_main_db']);
+            }
+
+             if($_SESSION['generate_ssid'] !=''){
+              unset($_SESSION['generate_ssid']);
+            }
+   
+          
+}
+
+function ajax_callback_tehsil_de($form, $form_state){
+
+   return $form['village_de'];
+    
+   
+}
+
+
+
+ function duplicate_data($schema, $data_value, $state){
+  
+        foreach ($data_value as $key => $data) { 
+        insert_fres_dupl_rec($schema, $data, $state);
+          
+         }
+
+           
+}
+
+
+ function fresh_data($schema, $data_value,$state){
+
+  foreach ($data_value as $key => $data) {
+      
+      $freshall_query = db_select($schema.".individual_".$state, "du")    
+                          ->fields('du')
+                          ->execute();
+                          $datamatchahl_tin = array();
+                          $datamatchaadhaar = array();
+                    while ( $fresh_re = $freshall_query->fetchAssoc() ) {
+                     $datamatchahl_tin[] = $fresh_re['ahl_tin'];
+                     $datamatchaadhaar[] = $fresh_re['aadhaar'];
+
+
+                      } 
+                       $newahl_tin = $data['ahl_tin'];
+                       $newaadhaar = $data['aadhaar'];
+                    
+      // if((!in_array($newahl_tin,$datamatchahl_tin)) || (!in_array($newaadhaar,$datamatchaadhaar))){
+           insert_fres_dupl_rec($schema, $data,$state); 
+//           print $schema;
+//           echo '<pre>';
+//           print_r($data);
+           
+                //}
+       }
+       
+       //die('jjjj');
+
+           
+}
+
+
+function deduplication_import_finished($success, $results, $operations) {
+    
+          drupal_set_message("De-Duplication process completed for the Village.");
+
+  }
+  
+  
+  function _deduplication_remember_filename($filename, &$context) {
+    $context['results']['uploaded_filename'] = $filename;
+  }
+
+  function _deduplication_import_line($line, $session_nid, &$context) {
+      
+    $context['results']['rows_imported']++;
+    $line = $cleaned_line = array_map('base64_decode', $line);
+    
+    
+    
+      $context['message'] = t('Importing row !c', array( '!c' => $context['results']['rows_imported'] ));
+    
+      $context['message'] = t('Importing %title', array('%title' => $line[0]));
+    
+      //drupal_set_message("Parsed line {$line[0]}");
+  
+     if ( $line[1] == 'ROW' && $line[2] == 'FAILS' ) {
+        $context['results']['failed_rows'][] = $line ;
+      }
+}
+
+
+
+function insert_fres_dupl_rec($schema,$data, $state){
+  
+
+  if($schema == 'national_deduplication'){
+     $table_up = "national_deduplication.fresh_records";
+  }
+else if($schema == 'ssid_generated_data'){
+     $table_up = "ssid_generated_data.uwssid";
+  }
+  else{
+    $table_up = $schema.'.individual_'.$state;
+  }
+  
+ print $table_up;
+ print_r($data);
+
+ $ahlv = $data['ahl_tin'];
+$df_state_ssid = substr($ahlv ,2,2);
+
+$df_district_ssid = substr($ahlv ,4,2);
+
+ $df_tehsil_ssid = substr($ahlv ,6,3);
+
+ $df_village_ssid = substr($ahlv ,9,4);
+
+	
+  $result_ins = db_insert($table_up)
+                  ->fields(array(
+                      'house_hold_id' => $data['house_hold_id'],
+                      'tin_npr' => $data['tin_npr'],
+                     'statecode' => $df_state_ssid,
+                     'districtcode' => $df_district_ssid,
+                     'tehsilcode' => $df_tehsil_ssid,
+                     'towncode ' => $df_village_ssid,
+                     'slnomember' => $data['slnomember'],
+                     'ahltypeofeb' => $data['ahltypeofeb'],
+                     'livinginshelter' => $data['livinginshelter'],
+                     'hhd_sectwocodes' => $data['hhd_sectwocodes'],
+                     'totalirrigated' => $data['totalirrigated'],
+                     'totalunirrigated' => $data['totalunirrigated'],
+                     'otherirrigated' => $data['otherirrigated'],
+                     'name' => $data['name'],
+                     'name_sl' => $data['name_sl'],
+                     'relation' => $data['relation'],
+                     'genderid' => $data['genderid'],
+                     'dob' => $data['dob'],
+                     'mstatusid' => $data['mstatusid'],
+                     'fathername' => $data['fathername'],
+                     'mothername' => $data['mothername'],
+                     'occupation' => $data['occupation'],
+                     'educode' => $data['educode'],
+                     'education_other' => $data['education_other'],
+                     'incomesource_urban' => $data['incomesource_urban'],
+                     'wages_urban' => $data['wages_urban'],
+                     'disabilitycode' => $data['disabilitycode'],
+                     'hhd_housingcodes' => $data['hhd_housingcodes'],
+                     'hhd_otherassetscodes' => $data['hhd_otherassetscodes'],
+                     'hhd_employmentcodes' => $data['hhd_employmentcodes'],
+                        'ahl_tin' => $data['ahl_tin'],
+                     'member_status' => $data['member_status'],
+                     'age' => $data['age'],
+                     'yob' => $data['yob'],
+                     'hof' => $data['hof'],
+                     'e_id' => $data['e_id'],
+                     'aadhaar' => $data['aadhaar'],
+                     'bank_account_no' => $data['bank_account_no'],
+                     'bank_name' => $data['bank_name'],
+                     'bank_branch' => $data['bank_branch'],
+                     'primary_occupation_code' => $data['primary_occupation_code'],
+                     'secondary_occupation_code' => $data['secondary_occupation_code'],
+                     'p_address1' => $data['p_address1'],
+                     'p_address2' => $data['p_address2'],
+                     'p_villagetown' => $data['p_villagetown'],
+                     'p_district' => $data['p_district'],
+                     'p_state' => $data['p_state'],
+                     'p_pincode' => $data['p_pincode'],
+                     'c_address1' => $data['c_address1'],
+                     'c_address2' => $data['c_address2'],
+                     'c_villagetown' => $data['c_villagetown'],
+                     'c_district' => $data['c_district'],
+                     'c_state' => $data['c_state'],
+                     'c_pincode' => $data['c_pincode'],
+                     'aadhaar_yesno' => $data['aadhaar_yesno '],
+                     'beggars_dw_sv_hbw_adwi_wages' => $data['beggars_dw_sv_hbw_adwi_wages'],
+                     'construction_pl_sw_tw_sw' => $data['construction_pl_sw_tw_sw'],
+                     'ssid' => $data['ssid'],
+                     'uw_record' => $data['uw_record'],
+                     'p_tehsil' => $data['p_tehsil'],
+                     'c_tehsil' => $data['c_tehsil'],
+                     'lh_fingerprintimage' => $data['lh_fingerprintimage'],
+                     'lh_fingerprinttemplate' => $data['lh_fingerprinttemplate'],
+                     'rh_fingerprintimage' => $data['rh_fingerprintimage'],
+                     'rh_fingerprinttemplate' => $data['rh_fingerprinttemplate'],
+                     'photograph' => $data['photograph'],
+                     'income' => $data['income'],
+                     'cardholder' => $data['cardholder'],
+                     'mobile_num' => $data['mobile_num'],
+                     'ifsc_code' => $data['ifsc_code'],
+                     'actual_self_decleration' => $data['actual_self_decleration'],
+                     'kit_id' => $data['kit_id'],
+                     'batch_id' => $data['batch_id'],
+                     'lessthan_10000' => $data['lessthan_10000'],
+                     'landlessthan_4acres' => $data['landlessthan_4acres'],
+                     'house_based' => $data['house_based'],
+                     'election_card_no' => $data['election_card_no'],
+                     'remark' => $data['remark'],  
+                     'mothername_uwssp'=> $data['mothername_uwssp'],
+                     'fathername_uwssp'  => $data['fathername_uwssp'],
+                     'edit_seccdata'   =>       $data['edit_seccdata'],                         
+                     'wardid' =>  $data['wardid'],  
+                    'blockno' =>  $data['blockno'],
+                     'ahlblockno' =>  $data['ahlblockno'],
+                     'ahlsubblockno' =>  $data['ahlsubblockno'],
+                     'slnohhd' =>  $data['slnohhd'],
+                     'ahlslnohhd' =>  $data['ahlslnohhd'],
+                     'typeofhhd' =>  $data['typeofhhd'],
+                     'caste_group' =>  $data['caste_group'],
+                     'hhd_assetcodes' =>  $data['hhd_assetcodes'],
+                     'hhd_landownedcodes' =>  $data['hhd_landownedcodes'],
+                     'card_issue'   => $data['card_issue'],
+                     'relation_uwssp'   => $data['relation_uwssp'],
+                     'unorganised'   => $data['unorganised'],
+
+                  ))
+                ->execute();
+}
+
+function ajax_callback_rural_urban_de($form, $form_state){
+
+
+         $form_field_r_u = $form_state['values']['rural_urban_de'];
+         if($form_field_r_u == 'rural')
+         {
+            $r_u = 'R';
+         }
+         else{
+            $r_u = 'U';
+         }
+
+  // return $form['wrapper_rurul_urban'] = $r_u;
+
+    $form_field_state = $form['state_de'];
+    $form_field_district = $form['district_de'];
+    $form_field_tehsil = $form['tehsil_de'];
+    $form_field_village = $form['village_de'];
+   
+       return array(
+           '#type' => 'ajax',
+           '#commands' => array(
+           ajax_command_replace("#wrapper_state_de", render($form_field_district)),                      
+           ajax_command_replace("#wrapper_tehsil_de", render($form_field_tehsil)),
+           ajax_command_replace("#wrapper_village_de", render($form_field_village))    
+           )
+   );
+
+}
+
+function ajax_callback_state_de($form, $form_state){
+        //$form_field_district_de = $form['district_de'];
+
+    
+    $form_field_district = $form['district_de'];
+    $form_field_tehsil = $form['tehsil_de'];
+    $form_field_village = $form['village_de'];
+   
+       return array(
+           '#type' => 'ajax',
+           '#commands' => array(
+           ajax_command_replace("#wrapper_state_de", render($form_field_district)),
+                      //ajax_command_replace("#wrapper_state_p", render($form_field_district)),
+           //ajax_command_replace("#wrapper_state", render($form_field_district_de)),
+
+           ajax_command_replace("#wrapper_tehsil_de", render($form_field_tehsil)),
+           ajax_command_replace("#wrapper_village_de", render($form_field_village))    
+           )
+   );
+}
+
+
+function ajax_callback_district_de($form, $form_state){
+    
+    // return $form['tehsil'];
+    
+     $form_field_tehsil = $form['tehsil_de'];
+     $form_field_village = $form['village_de'];
+    
+       return array(
+           '#type' => 'ajax',
+           '#commands' => array(
+                       ajax_command_replace("#wrapper_tehsil_de", render($form_field_tehsil)),
+
+           ajax_command_replace("#wrapper_village_de", render($form_field_village))    
+           )
+   );
+    
+   // return $form['tehsil'];
+}
+
+function duplicate_pending_record_result($schema,$ahl_tin,$state ,$val, $district){
+
+if($val == 'pending') {
+  if(!empty($district)){
+    $query2 =  db_select($schema.".individual_".$state, "p")
+	  ->fields('p')
+	  ->condition('p.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+	  ->condition('p.de_depulication_status', '0', '=')
+    ->condition('p.districtcode', $district, '=')
+
+	  ->execute()->rowCount();
+	  return $query2;
+  }
+   
+  else{
+    $query2 =  db_select($schema.".individual_".$state, "p")
+    ->fields('p')
+    ->condition('p.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+    ->condition('p.de_depulication_status', '0', '=')
+    ->condition('p.statecode', $state, '=')
+
+    ->execute()->rowCount();
+    return $query2;
+  }
+}
+
+if($val == 'doc_uploaded') {
+    $query2 =  db_select($schema.".individual_".$state, "p")
+    ->fields('p')
+    ->condition('p.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+    ->condition('p.de_depulication_status', '0', '=')
+    ->condition('p.upload_document', '1', '=')
+
+    ->execute()->rowCount();
+    return $query2;
+  
+} 
+	
+
+}
+function duplicate_pending_record__tehsil_result($schema,$ahl_tin,$state ,$val, $district, $tehsil){
+ 
+if($val == 'pending') {
+  if(!empty($tehsil)){
+    $query2 =  db_select($schema.".individual_".$state, "p")
+    ->fields('p')
+    ->condition('p.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+    ->condition('p.de_depulication_status', '0', '=')
+    ->condition('p.districtcode', $district, '=')
+    ->condition('p.tehsilcode', $tehsil, '=')
+
+    ->execute()->rowCount();
+    return $query2;
+  }
+  else{
+    $query2 =  db_select($schema.".individual_".$state, "p")
+    ->fields('p')
+    ->condition('p.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+    ->condition('p.de_depulication_status', '0', '=')
+    ->condition('p.statecode', $state, '=')
+
+    ->execute()->rowCount();
+    return $query2;
+  }
+} 
+  
+
+}
+
+function duplicate_pending_record__village_result($schema,$ahl_tin,$state ,$val, $district, $tehsil, $village){
+ 
+if($val == 'pending') {
+  if(!empty($tehsil)){
+    $query2 =  db_select($schema.".individual_".$state, "p")
+    ->fields('p')
+    ->condition('p.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+    ->condition('p.de_depulication_status', '0', '=')
+    ->condition('p.districtcode', $district, '=')
+    ->condition('p.tehsilcode', $tehsil, '=')
+    ->condition('p.towncode', $village, '=')
+
+    ->execute()->rowCount();
+    return $query2;
+  }
+  else{
+    $query2 =  db_select($schema.".individual_".$state, "p")
+    ->fields('p')
+    ->condition('p.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+    ->condition('p.de_depulication_status', '0', '=')
+    ->condition('p.statecode', $state, '=')
+
+    ->execute()->rowCount();
+    return $query2;
+  }
+} 
+  
+
+}
+
+function unique_record_non_un($schema,$ahl_tin,$state, $district){  
+
+$query =  db_select($schema.".individual_".$state, "n")
+      ->fields('n',array('ahl_tin'))
+      ->condition('n.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+      ->condition('n.statecode', $state, '=')
+      ->condition('n.districtcode', $district, '=')
+      ->condition('n.unorganised', '0', '=')
+      ->execute()->rowCount();
+      return $query;
+  }
+
+
+function diseased_people($schema,$ahl_tin,$state, $district){  
+
+$query =  db_select($schema.".individual_".$state, "n")
+      ->fields('n',array('ahl_tin'))
+      ->condition('n.statecode', $state, '=')
+      ->condition('n.districtcode', $district, '=')
+      ->condition('n.unorganised', '2', '=')
+      ->execute()->rowCount();
+      return $query;
+  }
+
+  function diseased_people_state($schema,$ahl_tin,$state, $district,$tehsil){  
+
+$query =  db_select($schema.".individual_".$state, "n")
+      ->fields('n',array('ahl_tin'))
+      ->condition('n.statecode', $state, '=')
+      ->condition('n.districtcode', $district, '=')
+       ->condition('n.tehsilcode', $tehsil, '=')
+      ->condition('n.unorganised', '2', '=')
+      ->execute()->rowCount();
+      return $query;
+  }
+
+
+  function diseased_people_vill($schema,$ahl_tin,$state, $district,$tehsil ,$village){  
+
+$query =  db_select($schema.".individual_".$state, "n")
+      ->fields('n',array('ahl_tin'))
+      ->condition('n.statecode', $state, '=')
+      ->condition('n.districtcode', $district, '=')
+       ->condition('n.tehsilcode', $tehsil, '=')
+        ->condition('n.towncode', $village, '=')
+      ->condition('n.unorganised', '2', '=')
+      ->execute()->rowCount();
+      return $query;
+  }
+
+function unique_record_non_un_state($schema,$ahl_tin,$state, $district,$tehsil){  
+
+$query =  db_select($schema.".individual_".$state, "n")
+      ->fields('n')
+      ->condition('n.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+       ->condition('n.statecode', $state, '=')
+      ->condition('n.districtcode', $district, '=')
+            ->condition('n.tehsilcode', $tehsil, '=')
+
+      ->condition('n.unorganised', '0', '=')
+      ->execute()->rowCount();
+      return $query;
+  }
+
+  function unique_record_non_un_vill($schema,$ahl_tin,$state, $district,$tehsil, $village){  
+
+$query =  db_select($schema.".individual_".$state, "n")
+      ->fields('n')
+      ->condition('n.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+       ->condition('n.statecode', $state, '=')
+      ->condition('n.districtcode', $district, '=')
+            ->condition('n.tehsilcode', $tehsil, '=')
+            ->condition('n.towncode', $village, '=')
+
+      ->condition('n.unorganised', '0', '=')
+      ->execute()->rowCount();
+      return $query;
+  }
+
+
+
+
+function duplicate_record_result($schema,$ahl_tin,$state, $district){
+  
+if($schema == 'duplicate_recods'){
+$pos = strpos($schema, 'registered_'.$state);
+if ($pos === false) {
+$query =  db_select($schema.".individual_".$state, "n")
+      ->fields('n')
+      ->condition('n.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+             ->condition('n.statecode', $state, '=')
+
+      ->condition('n.districtcode', $district, '=')
+
+      ->execute()->rowCount();
+      return $query;
+}
+}
+if ($schema == 'national_deduplication') {
+$query =  db_select("national_deduplication.fresh_records", "n")
+      ->fields('n')
+     // ->condition('n.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+      ->condition('n.statecode', $state, '=')
+      ->condition('n.unorganised', '1', '=')
+
+      ->condition('n.districtcode', $district, '=')
+      ->execute()->rowCount();
+      return $query;
+  }
+
+}
+
+function duplicate_unique_record_result($schema,$ahl_tin,$state, $district, $tehsil){
+if($schema == 'duplicate_recods'){
+$pos = strpos($schema, 'registered_'.$state);
+if ($pos === false) {
+$query =  db_select($schema.".individual_".$state, "n")
+      ->fields('n')
+      ->condition('n.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+      ->condition('n.statecode', $state, '=')
+      ->condition('n.districtcode', $district, '=')
+      ->condition('n.tehsilcode', $tehsil, '=')
+
+      ->execute()->rowCount();
+      return $query;
+}
+}
+if ($schema == 'national_deduplication') {
+$query =  db_select("national_deduplication.fresh_records", "n")
+      ->fields('n')
+      ->condition('n.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+      ->condition('n.statecode', $state, '=')
+      ->condition('n.districtcode', $district, '=')
+      ->condition('n.tehsilcode', $tehsil, '=')
+     ->condition('n.unorganised', '1', '=')
+
+
+      ->execute()->rowCount();
+      return $query;
+  }
+
+}
+
+function duplicate_unique_record_result_village($schema,$ahl_tin,$state, $district, $tehsil,$village){
+if($schema == 'duplicate_recods'){
+$pos = strpos($schema, 'registered_'.$state);
+if ($pos === false) {
+$query =  db_select($schema.".individual_".$state, "n")
+      ->fields('n')
+      ->condition('n.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+      ->condition('n.statecode', $state, '=')
+      ->condition('n.districtcode', $district, '=')
+      ->condition('n.tehsilcode', $tehsil, '=')
+      ->condition('n.towncode', $village, '=')
+
+      ->execute()->rowCount();
+      return $query;
+}
+}
+if ($schema == 'national_deduplication') {
+$query =  db_select("national_deduplication.fresh_records", "n")
+      ->fields('n')
+      ->condition('n.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+      ->condition('n.statecode', $state, '=')
+      ->condition('n.districtcode', $district, '=')
+      ->condition('n.tehsilcode', $tehsil, '=')
+      ->condition('n.towncode', $village, '=')
+     ->condition('n.unorganised', '1', '=')
+
+      ->execute()->rowCount();
+      return $query;
+  }
+
+}
+function total_record_result($schema,$ahl_tin,$state ,$val,$district){
+ 
+
+if($val =='total') {
+    $query3 =  db_select($schema.".individual_".$state, "t")
+   ->fields('t')
+   ->condition('t.de_depulication_status', '1', '=')
+   ->condition('t.statecode', $state, '=')
+   ->condition('t.districtcode', $district, '=')
+   ->execute()->rowCount();
+   return $query3;
+}
+  
+
+}
+function total_record_result_tehsil($schema,$ahl_tin,$state ,$val,$district,$tehsil){
+ 
+
+if($val =='total') {
+    $query3 =  db_select($schema.".individual_".$state, "t")
+   ->fields('t')
+   ->condition('t.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+   ->condition('t.de_depulication_status', '1', '=')
+   ->condition('t.statecode', $state, '=')
+   ->condition('t.districtcode', $district, '=')
+   ->condition('t.tehsilcode', $tehsil, '=')
+   ->execute()->rowCount();
+   return $query3;
+}
+  
+
+}
+
+function total_record_result_village($schema,$ahl_tin,$state ,$val,$district,$tehsil,$village){
+ 
+
+if($val =='total') {
+    $query3 =  db_select($schema.".individual_".$state, "t")
+   ->fields('t')
+   ->condition('t.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+   ->condition('t.de_depulication_status', '1', '=')
+    ->condition('t.statecode', $state, '=')
+   ->condition('t.districtcode', $district, '=')
+   ->condition('t.tehsilcode', $tehsil, '=')
+   ->condition('t.towncode', $village, '=')
+   ->execute()->rowCount();
+   return $query3;
+}
+  
+
+}
+
+function duplicate_result_data($form, &$form_state){
+  global $user;
+   $role = end($user->roles);
+  
+$header = array('S.N','AHL TIN','House-Hold ID', 'Name', 'Name(Regional)','Fathers\'s Name','Mother\'s Name','Occupation','YoB (YYYY)/DoB (DD/MM/YYYY)','Aadhaar','Bank Account Number' ,'Mobile Number' ,'Election Card number', 'Remark');
+
+    $state = $_SESSION['state_value_de'];
+ $district = $_SESSION['district_value_de'];
+ $tehsil = $_SESSION['tehsil_value_de'];
+ $village = $_SESSION['village_value_de'];
+
+if($district != 0 && $tehsil != 0 && $village == 0){
+		$ahl_tin = $state.$district.$tehsil;
+		$duplication_level = 'Tehsil';
+
+	} elseif($district != 0 && $tehsil == 0){
+		$ahl_tin = $state.$district;
+		$duplication_level = 'District';
+
+	} elseif ($district == 0) {
+		 $ahl_tin = $state;
+		 $duplication_level = 'State';
+
+
+	} else {
+		$ahl_tin = $state.$district.$tehsil.$village;
+		$duplication_level = 'Village';
+
+	}
+// echo "<pre>";
+// print_r($_GET['mode']);
+if($role == 'MOLE'){
+  $query =  db_select("duplicate_recods".".individual_".$state, "n")
+  ->fields('n')
+  ->condition('n.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+  ->condition('n.statecode', $state , '=')
+  ->condition('n.districtcode',$_GET['mode'] , '=')
+
+  ->execute();
+
+} 
+if($role == 'State'){
+
+  $query =  db_select("duplicate_recods".".individual_".$state, "n")
+  ->fields('n')
+  ->condition('n.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+  ->condition('n.statecode',$state , '=')
+  ->condition('n.districtcode',$district, '=')
+  ->condition('n.tehsilcode',$_GET['mode'] , '=')
+  ->execute();
+
+}
+ if($role == 'District'){
+
+  $query =  db_select("duplicate_recods".".individual_".$state, "n")
+  ->fields('n')
+  ->condition('n.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+  ->condition('n.statecode', $state, '=')
+  ->condition('n.districtcode', $district , '=')
+  ->condition('n.tehsilcode', $tehsil , '=')
+  ->condition('n.towncode',$_GET['mode'] , '=')
+
+  ->execute();
+}
+  $rows = array(); 
+    $i = 1;
+  while ( $data = $query->fetchAssoc()) {
+                    
+                              $rows[] = array(
+                              $i,    
+                              $data['ahl_tin'],
+                              $data['house_hold_id'],
+                              $data['name'],
+                              $data['name_sl'],    
+                              $data['fathername'],
+                              $data['mothername'],
+                              $data['occupation'],
+                              $data['yob'],    
+                              $data['aadhaar'],
+                              $data['bank_account_no'],
+                              $data['mobile_num'],
+                              $data['election_card_no'],
+                              $data['remark'],
+                                                            
+                          );
+                            $i++;
+                        }
+                        $form['table'] = array(
+                            '#theme' => 'table',
+                            '#header' => $header,
+                            '#rows' => $rows,
+                            '#empty' => t('Table has no row!')
+                          );
+
+           $form['pager'] = array('#markup' => theme('pager'));  
+
+    return $form;
+}
+
+function _get_location_count_block($type, $ahl_tin, $schema,$state,$district) {
+
+                   return number_of_tehsil($schema,$ahl_tin,$state,$district);
+}
+
+function number_of_tehsil($schema,$ahl_tin,$state,$district){
+ 
+    $string_length = strlen($ahl_tin);
+
+      $query =  db_select($schema.".individual_".$state, "n")
+                ->fields('n', array('ahl_tin'))
+               ->condition('n.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+             //  ->condition('n.de_depulication_status', '0', '=')
+               ->execute();
+
+              $getuptotehsil = array();
+          while($results = $query->fetchAssoc()){
+            // echo "<pre>";
+            // print_r($results);
+            $dis = substr($results['ahl_tin'],4,2);
+           if($district == $dis){
+             $data =  substr($results['ahl_tin'], 4);
+                   $getuptotehsil[] = substr($data ,0,2);
+
+                       // $getuptotehsil[] = substr($results['ahl_tin'],4,2);
+
+           }
+          //       if($string_length == 2){
+          //            $value =  substr($results['ahl_tin'],2,2);
+          //     } else if($string_length == 4){
+          //             $value =  substr($results['ahl_tin'],2,4);
+          //     }
+          //     else if($string_length == 7){
+          //           $value =  substr($results['ahl_tin'],2,7);
+          //     }
+
+          //       if($value == $ahl_tin){
+          //          $data =  substr($results['ahl_tin'], 2);
+          //         // $getuptotehsil[] = substr($data ,0,7);
+          //       }                    
+
+          }
+         // print_r($getuptotehsil);
+
+//die('sss');
+return count(array_unique($getuptotehsil));
+
+}
+
+function number_of_district($schema,$ahl_tin,$state){
+  $new_tbl_name = $schema.".individual_".$state;
+
+   if(db_table_exists($new_tbl_name)){
+             //form_set_error('', t('State table Does not exist'));  
+    
+ 
+    $string_length = strlen($ahl_tin);
+
+      $query =  db_select($schema.".individual_".$state, "n")
+                ->fields('n', array('districtcode'))
+                ->groupBy('n.districtcode')
+               ->condition('n.statecode', $state, '=')
+               ->execute()->rowCount();
+        
+return $query;
+}else{
+  $a =0;
+return $a;
+    }
+
+}
+
+function number_of_village($schema,$ahl_tin,$state,$district,$tehsil){
+ 
+    $string_length = strlen($ahl_tin);
+
+      $query =  db_select($schema.".individual_".$state, "n")
+                ->fields('n', array('ahl_tin'))
+               ->condition('n.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+             //  ->condition('n.de_depulication_status', '0', '=')
+               ->execute();
+
+              $getuptotehsil = array();
+          while($results = $query->fetchAssoc()){
+            // echo "<pre>";
+            // print_r($results);
+           $teh = substr($results['ahl_tin'],6,3);
+           if($tehsil == $teh){
+             $data =  substr($results['ahl_tin'], 4);
+                   $getuptotehsil[] = substr($data ,2,3);
+
+           }
+         
+          }
+          // echo "<pre>";
+          // print_r($getuptotehsil);
+
+//die('sss');
+          return count(array_unique($getuptotehsil));
+
+}
+function number_of_house_hold($schema,$ahl_tin,$state,$district,$tehsil,$village){
+  
+ 
+    $string_length = strlen($ahl_tin);
+
+      $query =  db_select($schema.".individual_".$state, "n");
+               $query->fields('n', array('house_hold_id'));
+               $query->condition('n.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE');
+              $query->condition('n.towncode', $village , '=');
+
+                $query->groupBy('n.house_hold_id');//GROUP BY user ID
+                $aaa =  $query->execute();
+                $num_of_results = $aaa->rowCount();
+
+          
+                          return $num_of_results;
+
+          //return count(array_unique($getuptotehsil));
+
+}
+
+function pan_duplication($form, &$form_state){
+
+    
+  global $user;
+  $role = end($user->roles);
+  $user_info = user_load($user->uid);
+
+if($_SESSION['rural_urban_value_pan'] !=''){
+  $session_rural = $_SESSION['rural_urban_value_pan'];
+}
+
+    $form['rural_urban_pan'] = array(
+      '#type' => 'radios',
+      '#title' => t('Select Area'),
+       '#options' => array(
+         'rural' => t('Rural'),
+         'urban' => t('Urban'),
+        ),
+       '#required' => TRUE,
+      '#default_value' => $session_rural, 
+      '#prefix' => '<div id="wrapper_area_choice">',
+        '#suffix' => '</div>',
+       
+      );
+   
+
+ $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+
+  $ru = $form_state['values']['rural_urban_pan'];
+ if($ru == 'rural'){
+    $ru_val = 'R';
+ } else{
+        $ru_val = 'U';
+
+ }
+
+
+if((!empty($session_rural))){
+
+
+ $form['pan-duplication'] = array(
+    '#type' => 'submit',
+    '#submit' => array('pan_de_duplication'),
+    '#value' => t('PAN Duplication'),
+  );
+}
+
+ 
+ $fst = 'registered_';
+ $sec = $_SESSION['rural_urban_value_pan'];
+ $tbl = $fst.''.$sec;
+ if($session_district == 0){
+  $session_district ='';
+ }
+ if($session_tehsil == 0){
+  $session_tehsil ='';
+ }
+ if($session_village == 0){
+  $session_village ='';
+ }
+
+ if(!empty($sec)){
+  $person_name = $_SESSION['person_name'];
+
+ $house_hold_id = $session_state.''.$session_district.''.$session_tehsil.''.$session_village;
+ if(($role == 'MOLE')){
+   $header_uw = array('S.N','State','NO of District','Unique Records','Unique Record/Non unorganised','Deceased Record','Pending De duplication PAN Level', 'Duplicate Record' ,'Total Record');
+
+}
+ $state = $_SESSION['state_value_de'];
+$district = $_SESSION['district_value_de'];
+$tehsil =$_SESSION['tehsil_value_de'];
+$village = $_SESSION['village_value_de'];
+
+if($district != 0 && $tehsil != 0 && $village == 0){
+    $ahl_tin = $state.$district.$tehsil;
+    $duplication_level = 'Tehsil';
+
+  } elseif($district != 0 && $tehsil == 0){
+    $ahl_tin = $state.$district;
+    $duplication_level = 'District';
+
+
+
+  } elseif ($district == 0) {
+     $ahl_tin = $state;
+     $duplication_level = 'State';
+
+
+  } else {
+    $ahl_tin = $state.$district.$tehsil.$village;
+    $duplication_level = 'Village';
+
+  }
+
+
+  
+
+
+
+  $rows = array();
+  
+
+                $i = 1;
+                          
+                            if($duplication_level == 'State'){
+
+                           //$state =  substr($data->duplication_level_value,0,2)."<br>";
+                 $list = _get_location('state','','','','',$ru_val);
+                   $duplicate_level_value = $list[$ahl_tin];
+
+                            }
+                            if($duplication_level == 'District'){
+                              $state =  substr($ahl_tin,0,2);
+                              $district =  substr($ahl_tin,2,4);
+                              $liststate = _get_location('state','','','','',$ru_val);
+                    $statevalue = $liststate[$state];
+                              $list = _get_location('district',$state,'','','',$ru_val);
+                              $duplicate_level_value = $statevalue .'/'. $list[$district];
+
+                            }
+                            if($duplication_level == 'Tehsil'){
+                              //print $ahl_tin;
+                              $state =  substr($ahl_tin,0,2);
+                              $district =  substr($ahl_tin,2,2);
+                              $tehsil =  substr($ahl_tin,4,7);
+                              $liststate = _get_location('state','','','','',$ru_val);
+                    $statevalue = $liststate[$state];
+                              $listdistrict = _get_location('district',$state,'','','',$ru_val);
+                              $districtvalue =  $listdistrict[$district];
+                $list = _get_location('tehsil',$state,$district,'','','',$ru_val);
+                              $duplicate_level_value =  $statevalue .'/'. $districtvalue .'/'. $list[$tehsil];
+
+                            }
+                            if($duplication_level == 'Village'){
+                $state =  substr($ahl_tin,0,2);
+                                $district =  substr($ahl_tin,2,2);
+                              $tehsil =  substr($ahl_tin,4,3);
+                              $village =  substr($ahl_tin,7,4);
+
+                              $liststate = _get_location('state','','','','',$ru_val);
+                    $statevalue = $liststate[$state];
+                              $listdistrict = _get_location('district',$state,'','','',$ru_val);
+                              $districtvalue =  $listdistrict[$district];
+                $listtehsil = _get_location('tehsil',$state,$district);
+                              $tehsilvalue =  $listtehsil[$tehsil];
+
+                              $list = _get_location('village',$state,$district,$tehsil,'','',$ru_val);
+                              $duplicate_level_value =  $statevalue .'/'. $districtvalue .'/'. $tehsilvalue .'/'. $list[$village];
+
+                            }
+                              
+                if(($role == 'MOLE')){
+
+                          $statelistv = _get_location('state','','','','',$ru_val);
+                               
+                                foreach ($statelistv as $key => $value) {
+
+                                  if($value!='Select'){
+                                    
+                                     $no_of_district =  number_of_district($tbl, $ahl_tin,$key);
+                                     if($no_of_district!=0){
+                                    $num_of_unique_record = duplicate_record_result_pan('ssid_generated_data',$ahl_tin,$key);
+                                     $num_of_unique_non_unorganised = unique_record_non_un_pan('national_deduplication',$ahl_tin ,$key);
+                                       $deceased_record_pan = deceased_record_pan('national_deduplication',$ahl_tin ,$key);
+                                     $num_of_duplicate_failed = duplicate_record_result_pan('duplicate_recods',$ahl_tin,$key);
+                                     $duplicate = l($num_of_duplicate_failed,'duplicate-result', array('query' => array('mode' => $key),'html' => TRUE));
+                                     $num_of_pending_deduplication = duplicate_pending_record_pan('national_deduplication',$ahl_tin,$key);
+                                    $num_of_total_record = total_record_result_pan('national_deduplication',$ahl_tin,$key);
+                                        }
+                                        else{
+
+                                        $num_of_unique_record = 0;
+                                         $num_of_duplicate_failed = 0;
+                                         $duplicate = 0;
+                                         $num_of_pending_deduplication = 0;
+                                        $num_of_total_record = 0;
+                                        $num_of_unique_non_unorganised =0;
+                                        $deceased_record_pan = 0;
+
+                                        }
+
+                                      $rows[] = array(
+                              $i, 
+                              //$duplicate_level_value, 
+ 
+                              $value,    
+                              $no_of_district,
+                              $num_of_unique_record,
+                              $num_of_unique_non_unorganised,
+                              $deceased_record_pan,
+                              $num_of_pending_deduplication,
+                              $duplicate,
+                              $num_of_total_record,
+                                                            
+                          );
+                              $i++;
+
+                                    }
+
+  }
+  
+  
+}
+
+                        $form['table'] = array(
+                            '#theme' => 'table',
+                            '#header' => $header_uw,
+                            '#rows' => $rows,
+                            '#empty' => t('Table has no row!')
+                          );
+
+           $form['pager'] = array('#markup' => theme('pager'));
+
+}  
+
+    return $form;
+
+
+}
+
+function pan_duplication_submit($form, &$form_state){
+
+   if ($form_state['values']['rural_urban_pan'] != '') {
+
+                 $_SESSION['rural_urban_value_pan'] =  $form_state['values']['rural_urban_pan'];
+
+       }
+}
+
+
+
+function duplicate_pending_record_pan($schema,$ahl_tin,$state){
+ 
+    $query =  db_select($schema.".fresh_records", "p")
+    ->fields('p')
+    ->condition('p.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+    ->condition('p.de_depulication_status', '0', '=')
+    ->condition('p.statecode', $state, '=')
+
+    ->execute()->rowCount();
+    return $query;  
+
+}
+
+
+function unique_record_non_un_pan($schema,$ahl_tin,$state){  
+
+$query =  db_select($schema.".fresh_records", "n")
+      ->fields('n')
+      ->condition('n.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+      ->condition('n.statecode', $state, '=')
+      ->condition('n.unorganised', '0', '=')
+      ->condition('n.de_depulication_status', '1', '=')
+      ->execute()->rowCount();
+      return $query;
+  }
+
+function deceased_record_pan($schema,$ahl_tin,$state){  
+
+$query =  db_select($schema.".fresh_records", "n")
+      ->fields('n')
+      ->condition('n.statecode', $state, '=')
+      ->condition('n.unorganised', '2', '=')
+      ->condition('n.de_depulication_status', '1', '=')
+      ->execute()->rowCount();
+      return $query;
+  }
+
+
+  function duplicate_record_result_pan($schema,$ahl_tin,$state){
+
+
+if ($schema == 'ssid_generated_data') {
+  
+$query =  db_select("ssid_generated_data.uwssid", "n")
+      ->fields('n')
+      ->condition('n.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+      ->condition('n.statecode', $state, '=')
+     
+
+      ->execute()->rowCount();
+
+      return $query;
+  }
+     
+    if($schema == 'fresh_records'){
+     $new_tbl_name = $schema.".individual_".$state;
+          if(db_table_exists($new_tbl_name)){
+  $query =  db_select($schema.".individual_".$state, "n")
+        ->fields('n')
+        ->condition('n.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+        ->condition('n.statecode', $state, '=')
+        ->condition('n.unorganised', '1', '=')
+        ->condition('n.de_depulication_status', '1', '=')
+        ->execute()->rowCount();
+        return $query;
+      }
+  }
+
+if($schema == 'duplicate_recods'){
+   $new_tbl_name = $schema.".individual_".$state;
+
+          if(db_table_exists($new_tbl_name)){
+      
+$query =  db_select($schema.".individual_".$state, "n")
+      ->fields('n')
+      ->condition('n.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+      ->condition('n.statecode', $state, '=')
+      ->execute()->rowCount();
+      return $query;
+    }
+  }
+
+
+
+
+  }
+
+
+  function total_record_result_pan($schema,$ahl_tin,$state){
+ 
+    $query3 =  db_select($schema.".fresh_records", "t")
+   ->fields('t')
+   ->condition('t.ahl_tin', '%'. db_like($ahl_tin) . '%', 'LIKE')
+   ->condition('t.de_depulication_status', '1', '=')
+   ->condition('t.statecode', $state, '=')
+   ->execute()->rowCount();
+   return $query3;
+}
+
+
+
+function pan_de_duplication(){
+
+
+  $pendingquery =  db_select("national_deduplication.fresh_records", "t")
+   ->fields('t')
+   ->condition('t.de_depulication_status', '0', '=')
+   ->execute()->rowCount();
+
+if($pendingquery !=0){
+
+        $query = db_select("national_deduplication.fresh_records", "n");
+        $query->fields('n' , array('ahl_tin'));
+        $query->condition('n.de_depulication_status', '0', '='); 
+        $query->Condition('n.ahl_tin', '', '!=');  
+        $query->groupBy("n.ahl_tin");
+        $query->having('COUNT(n.ahl_tin) > 1');
+
+  $result =  $query->execute();
+
+    $batch = array(
+      'title' => t('data is De duplicated with PAN level ...'),
+      'operations' => array(),
+      'init_message' => t('Commencing'),
+      'progress_message' => t('Processed @current out of @total.'),
+      'error_message' => t('An error occurred during processing'),
+      'finished' => 'deduplication_import_finished',
+    );
+
+    $count_dublicate ='';
+    $ahl_tin_no = array();
+    while($data = $result->fetchAssoc()){
+            $arraykeyval  = array_values($data);
+            $ahl_tin_no = array_merge($ahl_tin_no ,$arraykeyval);
+
+    }
+  //  echo "<pre>";
+    // print_r($ahl_tin_no);
+    // die('sss');
+
+   $stor_ahl ='';
+   foreach ($ahl_tin_no as $key => $ahl_tin_val) {
+                           $stor_ahl .= $ahl_tin_val.",";
+                           
+                         $state =  substr($ahl_tin_val, 2,2);
+
+
+          /**************** Duplicate AHL TIN NO from  Table ********************/
+ $ahl_duplicate_query = db_select("national_deduplication.fresh_records", "ag")    
+                          ->fields('ag')
+                          ->condition('ag.ahl_tin', $ahl_tin_val, '=')
+                          ->condition('ag.de_depulication_status', '0', '=')
+
+                          ->execute();
+                          $duplicate_ahl_result =array();
+                               while($ahl_resultduplicate = $ahl_duplicate_query->fetchAssoc()){   
+                                       $batch['operations'][] = array('_deduplication_remember_filename', $ahl_resultduplicate ) ;
+                                       $remark = ' Duplicate AHL TIN at PAN Level';
+                                       $ahl_resultduplicate['remark'] = $remark;
+                                       $duplicate_ahl_result[] = $ahl_resultduplicate;
+                              } 
+
+                   // print_r($duplicate_ahl_result);
+                    //die('asasas');
+                     
+              duplicate_data('duplicate_recods' , $duplicate_ahl_result, $state);
+                 
+                  $num_deleted = db_delete('national_deduplication.fresh_records')
+                    ->condition('ahl_tin', $ahl_tin_val)
+                    ->execute();
+
+       
+
+   }
+        $mul_ahl_no =  rtrim($stor_ahl,',');
+       $aa  = explode(',', $mul_ahl_no);
+       // print_r($aa);
+       // die('ssq');
+      // echo "<pre>";
+
+/********************fresh Ahl Tin Data *****************************/
+
+
+   $fresh_ahl_tin_record = db_select("national_deduplication.fresh_records", "ad")    
+                          ->fields('ad')
+                           ->condition('ad.ahl_tin', '', '!=')
+                          ->condition('ad.ahl_tin', $aa, 'NOT IN')
+                          ->condition('ad.de_depulication_status', '0', '=')
+                          ->execute();
+                          $duplicate_fresh_ahl_result =array();
+                     while($fresh_ahl_resultduplicate = $fresh_ahl_tin_record->fetchAssoc()){   
+                   //  print_r($fresh_ahl_resultduplicate);
+                       $batch['operations'][] = array('_deduplication_remember_filename', $fresh_ahl_resultduplicate ) ;
+                       $remark = 'AHL TIN';
+                       $fresh_ahl_resultduplicate['remark'] = $remark;
+                       $duplicate_fresh_ahl_result[] = $fresh_ahl_resultduplicate;
+                    } 
+                     //print_r($duplicate_fresh_ahl_result);
+
+                    //print_r($duplicate_fresh_ahl_result);
+                    foreach ($duplicate_fresh_ahl_result as $key => $ahlvalue) {
+                    $whitelist = array('aadhaar');
+                    $filtered[] = array_intersect_key( $ahlvalue, array_flip( $whitelist ) );
+                    $whitelist2 = array('ahl_tin','aadhaar');
+                    $filtered2[] = array_intersect_key( $ahlvalue, array_flip( $whitelist2 ) );
+
+                    }
+                   // print_r($filtered2);
+                                       // die('sss');
+
+                    $merge_aadhaar = array();
+                    foreach ($filtered as $key => $filteredvalue) {
+                            $aa = array_values($filteredvalue);
+                           $merge_aadhaar = array_merge($merge_aadhaar,$aa);
+                        }
+                        // print_r($merge_aadhaar);
+                        // die('ddd');
+
+                        $dup_aadhaar = array(); // storing duplicate aadhaar cariable 
+                      foreach(array_count_values($merge_aadhaar) as $val => $c){
+                                     if($c > 1){ 
+                                               $dup_aadhaar[] = $val;
+                                              }
+                                   }
+
+                                   // print_r($dup_aadhaar);
+                                   // die('ssssdd');
+
+                                  
+//**************************Removing duplicate aadhaar from array************************************/
+
+                 foreach ($dup_aadhaar as  $aadvalue) {
+                            $co = count($filtered2); 
+                             for ($i=0; $i < $co; $i++) { 
+                              if($aadvalue !=''){
+                                    if($filtered2[$i]['aadhaar'] == $aadvalue){
+                                             unset($filtered2[$i]);
+                                           }
+                                             }
+                                        }
+                                    }
+
+           ////////***************************fresh data  to insert************************///      
+   
+            $fresh_result = array_values($filtered2);
+           // echo "<pre>";
+            //print_r($fresh_result);
+            //die('ssss');
+
+            $fresh_result_value = array();
+            foreach ($fresh_result as $key => $fresh_resultvalue) {
+                          $fresh_query = db_select("national_deduplication.fresh_records", "fq")  
+                           ->fields('fq')
+                           ->condition('fq.ahl_tin', $fresh_resultvalue['ahl_tin'], '=')
+                          ->condition('fq.de_depulication_status', '0', '=')
+                          ->condition('fq.unorganised', '1', '=')
+
+                           ->execute();
+                     while ($fresh_results = $fresh_query->fetchAssoc()) {  
+                     // print_r($fresh_results);
+                         //$batch['operations'][] = array('_deduplication_remember_filename', $fresh_result );
+                       //   $fresh_result_value = $fresh_result;
+                     insert_fres_dupl_rec('ssid_generated_data',$fresh_results);
+
+                        }
+
+                        // print_r($fresh_result_value);
+                        // die();
+
+                       // print_r($fresh_result_value);
+                          $state =  substr($fresh_result_value[0]['ahl_tin'], 2,2);
+
+                       // insert_fres_dupl_rec('ssid_generated_data',$fresh_result_value);
+                  //fresh_data('ssid_generated_data' , $fresh_result_value ,$state);
+               // $batch['operations'][] = array('_deduplication_import_line', array(array_map('base64_encode', $line)));          
+                 }
+
+                 //print_r($fresh_result_value);
+               //  die();
+
+
+            //***************Duplicate aadhaar Data***********************/
+                $duplicate_aadhaar_data = array();
+                foreach ($dup_aadhaar as $aadhaarduplicate) {
+
+if($aadhaarduplicate != ''){
+
+                        $dupl_aadhaarquery = db_select("national_deduplication.fresh_records", "fq")  
+                           ->fields('fq')
+                           ->condition('fq.ahl_tin', '', '!=')
+                          ->condition('fq.ahl_tin', $aa, 'NOT IN')
+                           ->condition('fq.aadhaar', $aadhaarduplicate, '=')
+                          ->condition('fq.de_depulication_status', '0', '=')
+                           //->condition('fq.yob', $current_year, '<=') 
+
+                           ->execute();
+                     while ($dupaadharr_result = $dupl_aadhaarquery->fetchAssoc()) {  
+                         $batch['operations'][] = array('_deduplication_remember_filename', $dupaadharr_result );
+                         $remark = 'Duplicate AAdhaar at PAN';
+                       $dupaadharr_result['remark'] = $remark;
+                          $duplicate_aadhaar_data[] = $dupaadharr_result;
+                        }
+
+                }
+              }
+                    
+                 $state =  substr($duplicate_aadhaar_data[0]['ahl_tin'], 2,2);
+
+                   // print_r($duplicate_aadhaar_data);           
+                      duplicate_data('duplicate_recods' , $duplicate_aadhaar_data, $state);
+
+        $num_updated = db_update("national_deduplication.fresh_records")
+                             ->fields(array(
+                                'de_depulication_status' => 1,
+                              ))
+                            ->condition('de_depulication_status', '0', '=')
+                            ->execute();
+
+              $count_dublicate  = $count_dublicate + $data['count_duplicate_aadhaar_no'];
+
+ // }
+  //die('ssss');
+
+    batch_set($batch);
+  }
+  else{
+     form_set_error('de_duplication', t('No Pending Record for de duplication'));
+  }
+
+
+}

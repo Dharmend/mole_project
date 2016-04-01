@@ -1,0 +1,126 @@
+<?php
+// noteresource.module
+/** Gets a note object by id.
+*
+* @param int $id
+* @return object
+*/
+function noteresource_get_note($id) {
+  
+  return db_query('SELECT * FROM {note} WHERE id=:id', array(':id' => $id))
+           ->fetchAll();
+}
+
+/** Writes a note to the database
+*
+* @param object $note
+* @return void
+*/
+function noteresource_write_note($note) {
+  $primary_key = !empty($note->id) ? array('id') : NULL;
+  drupal_write_record('note', $note, $primary_key);
+}
+
+/**
+* Deletes a note from the database.
+*
+* @param int $id
+* @return void
+*/
+function noteresource_delete_note($id) {
+  db_query('DELETE FROM {note} WHERE id=:id', array(':id' => $id));
+}
+
+/**
+* Implementation of hook_services_resources().
+*/
+function noteresource_services_resources() {
+  
+    $api = array(
+    'blog' => array(
+      'operations' => array(
+        'retrieve' => array(
+          'help' => 'Retrieves posted blogs',
+          'callback' => '_MYMODULE_blog_retrieve',
+          'access callback' => 'user_access',
+          'access arguments' => array('access content'),
+          'access arguments append' => FALSE,
+          'args' => array(
+            array(
+              'name' => 'fn',
+              'type' => 'string',
+              'description' => 'Function to perform',
+              'source' => array('path' => '0'),
+              'optional' => TRUE,
+              'default' => '0',
+            ),
+            array(
+              'name' => 'nitems',
+              'type' => 'int',
+              'description' => 'Number of latest items to get',
+              'source' => array('param' => 'nitems'),
+              'optional' => TRUE,
+              'default' => '0',
+            ),
+            array(
+              'name' => 'since',
+              'type' => 'int',
+              'description' => 'Posts from the last number of days',
+              'source' => array('param' => 'since'),
+              'optional' => TRUE,
+              'default' => '0',
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  return
+
+$api;
+    
+}
+
+function _MYMODULE_blog_retrieve($fn, $nitems, $timestamp) {
+        // Check for mad values
+        $nitems = intval($nitems);
+        $timestamp = intval($timestamp);
+        return
+
+      MYMODULE_find_blog_items($nitems, $timestamp);
+}
+
+function MYMODULE_find_blog_items($nitems, $timestamp) {
+  // Compose query
+    
+//        $total_cities = '1';
+//        $batch = 'gfh';
+//        $new_list[] = array(
+//            'batch_id' => '21-01-001-0004-26022016-01',
+//            'batch_total_record' => '210',
+//            'state' => 'Odisha',
+//            'district' => 'Anugul',
+//            'tehsil' => 'haniha',
+//            'village' => 'jogendpur',
+//            
+//        );
+//        $msg = '';
+//        $manager = array('office_acronyms' => 'PPPMMYY001','reference_number' => 'BL-ITI1115010','reference_date' => '03022016235689','totalcount' => $total_cities,'batch_listing' =>$new_list);
+//        return services_error($msg, 200, $manager);
+    
+        $total_cities = '1';
+        $batch = 'gfh';
+        $new_list[] = array(
+            'id' => '21',
+            'name' => 'Hindustan Corporation Limited',
+            'acronyms' => 'HCL',
+            'state' => 'Uttar pradesh',
+            'district' => 'Kanpur',
+        );
+        $msg = '';
+        $manager = array('office_acronyms' => 'PPPMMYY001','reference_number' => 'AG-ITI1115010','reference_date' => '03022016235689','totalcount' => $total_cities,'agency_details' =>$new_list);
+        return services_error($msg, 200, $manager);
+        
+}
+
+?>

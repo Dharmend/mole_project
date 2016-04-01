@@ -1,0 +1,665 @@
+<?php
+
+function family_wise_reg_menu(){
+
+    $items['family-members/%'] = array(
+        'title' => 'List of Family Members',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('family_members'),
+        'access arguments' => array('access family members'),
+       // 'access callback' => TRUE,
+     );
+    $items['family/%/update-relation'] = array(
+        'title' => 'Update Relation With Head of Family',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('update_relation_family'),
+        'access arguments' => array('access family members'),
+       // 'access callback' => TRUE,
+     );
+    $items['family/%/uw-listing'] = array(
+        'title' => 'List of Unorganised Workers',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('list_uw_workers'),
+        'access arguments' => array('access family members'),
+       // 'access callback' => TRUE,
+     );
+    $items['uw_worker/%/registration'] = array(
+        'title' => 'Update Relationship',
+        'page callback' => 'drupal_get_form',
+        'file' => 'family_wise_reg.inc',
+        'file path' => drupal_get_path('module','family_wise_reg'),
+        'page arguments' => array('update_relationship'),
+        'access arguments' => array('access family members'),
+       // 'access callback' => TRUE,
+     );
+     $items['uw/%/self_declation_form'] = array(
+        'title' => 'Registration Cum self Declaration Form',
+        'page callback' => 'drupal_get_form',
+        'file' => 'family_wise_reg.inc',
+        'file path' => drupal_get_path('module','family_wise_reg'),
+        'page arguments' => array('self_declation_form'),
+        'access arguments' => array('access family members'),
+        //'access callback' => TRUE,
+     );
+     
+
+       $items['hof/%/file_upload'] = array(
+        'title' => 'Upload Photo',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('go_to_delcation_form'),
+        'access arguments' => array('access family members'),
+       // 'access callback' => TRUE,
+     );
+    
+    return $items;
+}
+
+function family_wise_reg_permission() {
+  return array(
+    'access family members' => array(
+      'title' => t('Access content for the whole family'),
+    )
+  );
+}
+
+function update_relation_family($form,&$form_state){
+
+ // echo "<pre>";
+  //print_r($_SESSION);
+    $ahl_tin = arg(1);
+    $state_val = $_SESSION['state_value'];
+  $r_u = $_SESSION['rural_urban_value'];
+  //print 'secc_'.$r_u.'.individual_'.$state_val;
+    
+      //$query = db_select($schema_name.'.individual_'.$_SESSION['state_value'],'secc')
+        $query = db_select('secc_'.$r_u.'.individual_'.$state_val,'secc')      
+         ->fields('secc',array('ahl_tin','slnomember','name','genderid','yob','house_hold_id'))
+         ->condition('secc.ahl_tin',$ahl_tin,'=')
+         ->execute()->fetchAssoc();
+  
+    
+    $form['family-read-only'] = array(
+    '#type' => 'fieldset',
+    '#title' => 'Read Only',  
+    '#prefix' => '<div class="read-only-fields">',
+   );
+    
+   $form['family-read-only']['household'] = array(
+        '#type' => 'item',
+        '#markup' => '<strong> AHL TIN :</strong> '.$query['ahl_tin'].'',
+    );
+    
+   $form['family-read-only']['name'] = array(
+        '#type' => 'item',
+        '#markup' => '<strong> Name :</strong> '.$query['name'].'',
+   );
+   
+   $form['family-read-only']['slomember'] = array(
+        '#type' => 'item',
+        '#markup' => '<strong> S.No Member :</strong> '.$query['slnomember'].'',
+   );
+   
+   $form['family-read-only']['gender'] = array(
+        '#type' => 'item',
+        '#markup' => '<strong> Gender :</strong> '.get_gender($query['genderid']).'',
+   );
+   $age = date('Y')- $query['yob'];
+   $form['family-read-only']['age'] = array(
+        '#type' => 'item',
+        '#markup' => '<strong> Age :</strong> '. $age .'',
+   );
+   
+   $form['family-read-only']['name'] = array(
+        '#type' => 'item',
+        '#markup' => '<strong> Name :</strong> '.$query['name'].'',
+        '#default_value' => $query['name'],
+   );
+   // Hidden values for saving in table
+   $form['household_hidden'] = array('#type' => 'hidden', '#value' => $query['house_hold_id']);
+   $form['name_hidden'] = array('#type' => 'hidden', '#value' => $query['name']);
+   $form['slomember_hidden'] = array('#type' => 'hidden', '#value' => $query['slnomember']);
+   $form['genderid_hidden'] = array('#type' => 'hidden', '#value' => $query['genderid']);
+   $form['yob_hidden'] = array('#type' => 'hidden', '#value' => $query['yob']);
+   //end hidden value
+        $qry = db_select('activity.family_relation','fm')
+        ->fields('fm')
+        ->execute()->fetchAll();
+   
+         $relation_list = array('0' => 'Select');
+   
+           foreach ($qry as $q){
+               $relation_list[$q->code] = t($q->name);
+       
+           }
+   
+    $form['family-read-only']['hof'] = array(
+        '#type' => 'select',
+        '#title' => t('Relationship With HOF'),
+        '#options' => $relation_list,
+        '#required' => TRUE,
+        //'#markup' => '<strong> Name :</strong> '.$query['name'].'',
+   );
+   
+    $form['family-read-only']['uw'] = array(
+        '#type' => 'select',
+        '#title' => t('Unorganised Workers (YES/NO)'),
+        '#options' => array(
+          'No' => t('No'),
+          'Yes' => t('Yes'),
+       ),
+        '#required' => TRUE,
+
+        //'#markup' => '<strong> Name :</strong> '.$query['name'].'',
+   );
+    
+     $form['family-read-only']['aadhar'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Aadhar'),
+        '#maxlength' => 12,
+        '#size' => 20,
+        //'#description' => 'Aadhar card should be 12 digits only', 
+        //'#markup' => '<strong> Name :</strong> '.$query['name'].'',
+   );
+     
+   $form['family-read-only']['alive-decease'] = array(
+        '#type' => 'select',
+        '#title' => t('Alive/Decease'),
+        '#options' => array(
+          'Alive' => t('Alive'),
+          'Decease' => t('Decease'),
+          
+       ),
+    );  
+  
+    $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Update Relation'),
+    '#weight' => 100,
+  );
+    
+    
+    $fst = $_SESSION['secc_uw_value'];
+    $sec = $_SESSION['rural_urban_value'];
+    $tbl = $fst.''.$sec;
+    $house_hld = $query['house_hold_id'];
+    
+$fqry = db_select('activity.family_registration','a')
+            ->fields('a',array('house_hold_id','ahl_tin'))
+            ->condition('a.house_hold_id',$house_hld)
+            ->execute();
+            $ahl =array();
+            while ($resultv = $fqry->fetchAssoc()) {
+              
+              $ahl[] = $resultv['ahl_tin'];
+            }
+
+//print_r($ahl);
+
+
+            $query = db_select('secc_'.$r_u.'.individual_'.$state_val, "n");
+            $query->fields('n');
+            $query->condition('n.house_hold_id',$house_hld);
+            $query = $query->extend('TableSort')->extend('PagerDefault')->limit(20);
+            $result_list = $query->execute();
+    
+        $family_header_update = array('Name','AHL TIN','Member S.No','Relation','Head of family','Gender','Year of Birth','Age as on Date','Edit');
+                    
+                    $c = 0;
+                    while($data = $result_list->fetchObject()){
+                            // Fill the table rows
+                      if(!in_array($data->ahl_tin, $ahl)){
+                        $edit_family = l('Edit','/family/'.$data->ahl_tin.'/update-relation');
+                        $family_rows_update[$data->ahl_tin] = array(
+                              $data->name,
+                              $data->ahl_tin,
+                              $data->slnomember, 
+                              $data->relation, 
+                              get_hof($data->hof),
+                              get_gender($data->genderid),
+                              $data->yob,
+                              date('Y') - $data->yob,
+                              $edit_family,
+                          );
+                      
+                     $c++;   
+                     }    
+                    }
+                  //  print $c;
+                  //print_r($expression);      
+                $form['family-select2'] = array(
+                //'#type' => 'tableselect',   
+                '#theme' => 'table',
+                '#header' => $family_header_update,
+                '#rows' => $family_rows_update,
+                '#weight' => 1,   
+                '#empty' => t('No Data Found.'),
+                '#prefix' => "<div id='my_printable_div'>",
+                            '#suffix' => "</div>",
+              );
+                if($c == 0){
+                $form['uw-listing'] = array(
+                  '#type' => 'link',
+                  '#title' => t('Next'),
+                  '#prefix' => '<div class="family-update-nxt"><strong>',
+                  '#suffix' => '</strong></div>',  
+                  '#weight' => 10,  
+                  '#href' => 'family/'.$house_hld.'/uw-listing',
+                );
+              }
+  
+  return $form;
+    
+}
+
+
+function family_members($form, &$form_state){
+
+
+ // print_r($_SESSION);
+  $state_val = $_SESSION['state_value'];
+  $r_u = $_SESSION['rural_urban_value'];
+ // print 'secc_'.$r_u.'.individual_'.$state_val;
+   $house_hold = arg(1);
+   
+   $get_hof = db_select('secc_'.$r_u.'.individual_'.$state_val,'secc')      
+         ->fields('secc',array('name'))
+         ->condition('secc.house_hold_id',$house_hold)
+         ->condition('secc.hof','1')  
+         ->execute()->fetchColumn();
+   
+    $form['family-fielddet'] = array(
+    '#type' => 'fieldset', 
+    '#title' => t('Selected Family'), 
+    '#weight' => 0, 
+    '#collapsible' => TRUE, 
+    '#collapsed' => FALSE,
+    );
+  
+   $form['family-fielddet']['household'] = array(
+   '#type' => 'item',
+   '#markup' => '<strong>HouseHold Id :</strong> '.arg(1).'',
+  );
+  $form['family-fielddet']['head-family'] = array(
+   '#type' => 'item',
+   '#markup' => '<strong>Head Of Family:</strong> '.$get_hof.'',
+  );
+
+   $edit = l('New Registration','labour-register', array('query' => array('house_h' => $house_hold),'html' => TRUE));
+
+  $form['family-fielddet']['new_reg'] = array(
+   '#type' => 'item',
+   '#markup' => $edit,
+  );
+  
+  // session state came from search filter module 
+  if(is_numeric($house_hold)){
+      
+    $fst = $_SESSION['secc_uw_value'];
+    $sec = $_SESSION['rural_urban_value'];
+    $tbl = $fst.''.$sec;
+    
+   //try{
+            //$query = db_select($tbl.".individual_".$_SESSION['state_value'], "n");
+            $query = db_select('secc_urban.individual_32', "n");
+            $query->fields('n',array('name'));
+            $query->condition('n.house_hold_id',$house_hold);
+            $query = $query->extend('TableSort')->extend('PagerDefault')->limit(20);
+            $result = $query->execute();
+    //} catch (Exception $ex) {
+            //form_set_error('',t('Unable to find Table names Please contact to administrator'));
+    //}
+    
+    $family_header = array('Name','AHL TIN','Member S.No','Head of family','Relation','Gender','Year of Birth','Age as on Date','Edit');
+                    
+                    
+                    while($data = $result->fetchObject()){
+                     // echo "<pre>";
+                      //print_r($data);
+                            // Fill the table rows
+                        $edit_family = l('Edit','/family/'.$data->ahl_tin.'/update-relation');
+                        $family_rows[$data->ahl_tin] = array(
+                              $data->name,
+                              $data->ahl_tin,
+                              $data->slnomember,    
+                              get_hof($data->hof),
+                              $data->relation,
+                              get_gender($data->genderid),
+                              $data->yob,
+                              date('Y') - $data->yob,
+                              $edit_family,
+                          );
+                            
+                    }
+                  //print_r($expression);      
+                $form['family-select'] = array(
+                //'#type' => 'tableselect',   
+                '#theme' => 'table',
+                '#header' => $family_header,
+                '#rows' => $family_rows,
+                '#weight' => 1,   
+                '#empty' => t('No Data Found.'),
+                '#prefix' => "<div id='my_printable_div'>",
+                            '#suffix' => "</div>",
+              );
+      
+  }
+   
+ return $form;
+    
+}
+
+function list_uw_workers($form,$form_state){
+
+$state_val = $_SESSION['state_value'];
+  $r_u = $_SESSION['rural_urban_value'];
+  $householdid = arg(1);
+    
+    // $form['uw-list'] = array(
+    //     '#type' => 'item',
+    //     '#markup' => t('List of Unorganised Workers'),
+    // );
+
+    $query = db_select('secc_'.$r_u.'.individual_'.$state_val,'secc')      
+         ->fields('secc',array('name'))
+         ->condition('secc.house_hold_id',$householdid,'=')
+         ->condition('secc.hof','1')  
+         ->execute()->fetchAssoc();
+
+    $form['family-fielddet'] = array(
+    '#type' => 'fieldset', 
+    '#title' => t('Selected Family'), 
+    '#weight' => 0, 
+    '#collapsible' => TRUE, 
+    '#collapsed' => FALSE,
+    );
+  
+
+   $form['family-fielddet']['household'] = array(
+   '#type' => 'item',
+   '#markup' => '<strong>HouseHold Id :</strong> '.arg(1).'',
+  );
+
+  $form['family-fielddet']['head-family'] = array(
+   '#type' => 'item',
+   '#markup' => '<strong>Head Of Family:</strong> '.$query['name'].'',
+  );
+   // $form['family-fielddet']['next'] = array(
+   //               '#type' => 'submit',
+   //               '#value' => t('Next'),
+   //               '#submit' => array('go_to_delcation_form'),
+   //               '#validate' => array('go_to_delcation_form_validate'), 
+   //             );
+
+// $edit = l('Next to Get self Declartion','hof/'.$householdid.'/file_upload', array('query' => array('house_h' => $householdid),'html' => TRUE));
+//   $form['family-fielddet']['next'] = array(
+//    '#type' => 'item',
+//    '#markup' => $edit,
+//   );
+
+  $form['family-fielddet']['next'] = array(
+                  '#type' => 'link',
+                  '#title' => t('Next to Get self Declartion'),
+                  '#prefix' => '<div class="family-update-nxt"><strong>',
+                  '#suffix' => '</strong></div>',  
+                  '#weight' => 10,  
+                  '#href' => 'hof/'.$householdid.'/file_upload',
+                  '#validate' => array('go_to_delcation_form_validate'), 
+
+                );
+  
+    $uw_list = db_select('activity.family_registration','af')
+            ->fields('af')
+            ->condition('house_hold_id',$householdid)
+            ->condition('uw_workers','Yes')
+            ->execute();
+    
+   $uw_header = array('Name','AHL TIN','Member S.No','Head of family','Relation','Gender','Year of Birth','Age as on Date','Edit'); 
+    
+    while($data = $uw_list->fetchObject()){
+      $relation = $data->relation_hof;
+      $reltion_name = db_select('activity.family_relation','fr')
+            ->fields('fr',array('name'))
+            ->condition('code',$relation)
+            ->execute()->fetchcolumn();
+            if($relation == '01'){
+              $head = 'Yes';
+            }else{
+              $head = 'No';
+            }
+
+              $result = db_select('online_reg_'.$r_u.'.individual_'.$state_val,'qwe')      
+                       ->fields('qwe')
+                       ->condition('ahl_tin',$data->ahl_tin)
+                       ->execute()->rowCount();
+              
+
+                            // Fill the table rows
+              if($result == 0){
+                        $edit_family = l('Update Relationships','/uw_worker/'.$data->ahl_tin.'/registration');
+                      } else {
+                       $edit_family = "<b>Record Updated</b>";
+
+                      }
+                        $uw_rows[$data->ahl_tin] = array(
+                              $data->name,
+                              $data->ahl_tin,
+                              $data->slnomember,    
+                              $head,
+                              $reltion_name,
+                              get_gender($data->genderid),
+                              $data->age,
+                              date('Y') - $data->age,
+                              $edit_family,
+                          );
+                      
+                            
+                    }
+                    
+    $form['uw-select'] = array(
+                //'#type' => 'tableselect',   
+                '#theme' => 'table',
+                '#header' => $uw_header,
+                '#rows' => $uw_rows,
+                '#weight' => 1,   
+                '#empty' => t('No Data Found.'),
+                '#prefix' => "<div id='my_printable_div'>",
+                '#suffix' => "</div>",
+    );
+    
+    
+    return $form;
+    
+}
+
+function update_relation_family_submit($form, $form_state){
+   //drupal_set_message('<pre>'.print_r($form_state['values'],TRUE).'</pre>');
+    global $user;
+    $ahl_tin = arg(1);
+   
+     $age = date('Y') - $form_state['values']['yob_hidden'];
+
+              if($age >= '18') {
+                $uwr = $form_state['values']['uw'];
+}
+else{
+                $uwr = 'No';
+}
+    $fqry = db_select('activity.family_registration','a')
+            ->fields('a',array('ahl_tin'))
+            ->condition('ahl_tin',$ahl_tin)
+            ->execute()->fetchcolumn();
+            if($fqry != ''){
+                
+                
+                $update_qry = db_update('activity.family_registration')
+                              ->fields(array(
+                                  'relation_hof' => $form_state['values']['hof'],
+                                  'uw_workers' => $uwr,
+                                  'aadhar' => $form_state['values']['aadhar'],
+                                  'alive_decease' => $form_state['values']['alive-decease'],
+                                  
+                                   'house_hold_id' => $form_state['values']['household_hidden'],
+                                   'name' => $form_state['values']['name_hidden'],
+                                   'slnomember' => $form_state['values']['slomember_hidden'],
+                                   'genderid' => $form_state['values']['genderid_hidden'],
+                                   'age' => $form_state['values']['yob_hidden'],
+                                  
+                                  'uid' => $user->uid,
+                                  'created' => REQUEST_TIME,
+                                  'update_flag' => 1,
+                              ))
+                              ->condition('ahl_tin',arg(1))
+                              ->execute();
+                if($update_qry){
+                    drupal_set_message(t('Data has been updated successfully.'));
+                }
+                              
+                
+                
+
+            }else{
+                    $insert_qry = db_insert('activity.family_registration')
+                                    ->fields(array(
+                                        'ahl_tin' => arg(1),
+                                        'relation_hof' => $form_state['values']['hof'],
+                                        'uw_workers' => $uwr,
+                                        'aadhar' => $form_state['values']['aadhar'],
+                                        'alive_decease' => $form_state['values']['alive-decease'],
+                                        
+                                        'house_hold_id' => $form_state['values']['household_hidden'],
+                                        'name' => $form_state['values']['name_hidden'],
+                                        'slnomember' => $form_state['values']['slomember_hidden'],
+                                        'genderid' => $form_state['values']['genderid_hidden'],
+                                        'age' => $form_state['values']['yob_hidden'],
+                                        
+                                        'uid' => $user->uid,
+                                        'created' => REQUEST_TIME,
+                                        'update_flag' => 1,
+                                    ))
+                                    ->execute();
+                    if($insert_qry){
+                        drupal_set_message(t('Data has been updated successfully.'));
+                    }
+
+    }
+  
+
+}
+
+// function go_to_delcation_form_validate($form, &$form_state){
+//    die('ddddd');
+
+//             $uw_list = db_select('activity.family_registration','af')
+//             ->fields('af')
+//             ->condition('house_hold_id',arg(1))
+//             ->condition('uw_workers','Yes')
+//             ->execute();
+    
+//     $ahl = array();
+//     while($data = $uw_list->fetchObject()){
+//        $ahl[] = $data->ahl_tin;
+//     }
+//     if($_SESSION['rural_urban_value'] != ''){
+//       $online_table = 'online_reg_'.$_SESSION['rural_urban_value'];
+//   }
+
+//   $query = db_select($online_table.'.individual_'.$_SESSION['state_value'],'online')
+//          ->fields('online',array('ahl_tin'))
+//          ->condition('house_hold_id',arg(1))
+//          ->execute();
+  
+// $online_ahl = array();
+//     while($olineregdata = $query->fetchObject()){
+//        $online_ahl[] = $olineregdata->ahl_tin;
+//     }
+   
+// if (count(array_intersect($ahl, $online_ahl)) != count($ahl)){
+//     form_set_error('',t('Please Update All data '));
+// }
+// }
+ function go_to_delcation_form($form, &$form_state){
+
+   $uw_list = db_select('activity.family_registration','af')
+            ->fields('af')
+            ->condition('house_hold_id',arg(1))
+            ->condition('uw_workers','Yes')
+            ->execute();
+    
+    $ahl = array();
+    while($data = $uw_list->fetchObject()){
+       $ahl[] = $data->ahl_tin;
+    }
+    if($_SESSION['rural_urban_value'] != ''){
+      $online_table = 'online_reg_'.$_SESSION['rural_urban_value'];
+  }
+
+  $query = db_select($online_table.'.individual_'.$_SESSION['state_value'],'online')
+         ->fields('online',array('ahl_tin'))
+         ->condition('house_hold_id',arg(1))
+         ->execute();
+  
+$online_ahl = array();
+    while($olineregdata = $query->fetchObject()){
+       $online_ahl[] = $olineregdata->ahl_tin;
+    }
+   
+if (count(array_intersect($ahl, $online_ahl)) != count($ahl)){
+    form_set_error('',t('Please Update All data '));
+}else{
+
+ $form['#attributes'] = array(
+      'enctype' => 'multipart/form-data'
+    );
+  
+ $form['hof_photo'] = array(
+    '#type' => 'managed_file',
+    '#name' => 'hof_image',
+    '#title' => t('Upload Photo'),
+    '#size' => 40,
+   // '#description' => t("Image should be less than 400 pixels wide and in JPG format."),
+    '#upload_location' => 'public://'
+  ); 
+ $form['submit'] = array(
+        '#type' => 'submit',
+        '#value' => t('Update'),
+    );
+
+  return $form; 
+}
+  
+
+ }
+
+
+function go_to_delcation_form_submit($form, &$form_state) {
+  if (isset($form_state['values']['hof_photo'])) {
+    $file = file_load($form_state['values']['hof_photo']); 
+    $uri = file_create_url($file->uri);      
+    $photo_image =  base64_encode(file_get_contents($uri));
+
+       $state_val = $_SESSION['state_value'];
+       $r_u = $_SESSION['rural_urban_value'];
+      $query = db_select('online_reg_'.$r_u.'.individual_'.$state_val,'onl')      
+         ->fields('onl')
+         ->condition('onl.house_hold_id',arg(1))
+         ->condition('onl.hof','1')  
+         ->execute()->fetchAssoc();
+
+      $ahltin = $query['ahl_tin'];
+
+   $num_updated = db_update('online_reg_'.$r_u.'.individual_'.$state_val) // Table name no longer needs {}
+  ->fields(array(
+    'photograph' => $photo_image,
+  ))
+  ->condition('ahl_tin', $ahltin, '=')
+  ->execute();
+  
+   $file->status = FILE_STATUS_PERMANENT;
+   file_save($file);
+
+
+    $slip_arg =$query['ahl_tin'];
+   $form_state['redirect'] = 'uw/'.$ahltin.'/self_declation_form';
+
+  }
+}

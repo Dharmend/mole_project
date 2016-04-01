@@ -1,0 +1,588 @@
+<?php
+
+function post_reg_data_permission() {
+  return array(
+    'post registration data content' => array(
+      'title' => t('Access content post registration data'),
+    )
+  );
+}
+
+function post_reg_data_menu(){
+    $items['post-registraion'] = array(
+        //'title' => t('Test'),
+        'title' => 'Search/View Post Registration Data',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('post_regis'),
+        'access arguments' => array('post registration data content'),
+        'access callback' => TRUE,
+     );
+    return $items;
+}
+
+
+function post_regis($form, &$form_state){
+
+  global $user;
+  $role = end($user->roles);
+  $user_info = user_load($user->uid);
+
+ $options = array(
+    'target_id' => 'my_printable_div',
+    'button_id' => 'my_print_button',
+    'value' => t('Print Record'),
+    'type' => 'link',
+    'custom_css' => path_to_theme().'/css/style.css',
+  );
+
+ //area_print_form($options);
+
+  //print "aaaaaaa";
+  $print = area_print_form($options);
+
+/*if($_SESSION['village_value'] !='0'){
+  $session_village = $_SESSION['village_value'];
+}*/
+
+if($_SESSION['secc_uw_value'] !=''){
+  $session_sec = $_SESSION['reg_secc_uw_value'];
+}
+if($_SESSION['reg_rural_urban_value'] !=''){
+  $session_rural = $_SESSION['reg_rural_urban_value'];
+}
+
+//Add Code for agency role
+global $user;
+$aa = user_load($user->uid);
+$usermail = $user->mail;
+$querynode = db_select('node', 'n');
+              $querynode->fields('n');
+              $querynode->condition('type','agency','=');
+  $resultn = $querynode->execute();
+  while ($datanode = $resultn->fetchAssoc()) {
+//echo $datanode['nid'];
+
+      $node =  node_load($datanode['nid']);
+      $emailvalue = field_get_items('node', $node, 'field_email_id');
+      foreach ($emailvalue as $key => $email) {
+
+     $agency_detail = array();
+     if($email['email'] == $usermail){
+            $agency_detail = array( 'agency_id' =>$datanode['nid'],
+                                  'agency_mail' =>$email['email'],
+            ); 
+      }
+
+   } 
+  }
+ 
+  
+  $form['desc'] = array(
+      '#type' => 'item',
+      '#markup' => t('List of Post Registration Data, Which is registerd by offline or online prior to check de-dupluicate and generate SSID.'),
+  );
+
+//End code for agency role
+//   
+//    $form['secc_uw'] = array(
+//        '#type' => 'radios',
+//        '#title' => t('Select Data Source'),
+//        '#options' => array(
+//        'registered' => t('Socio-Economic Caste Census'),//Socio-Economic Caste Census
+//        //'uw_' => t('Socio-Economic Caste Census'),//Possible Unorganised Workers based on MoLE Criteria
+//        ),
+//        '#required' => TRUE,
+//        '#default_value' => $session_sec, 
+//        '#prefix' => '<div id="wrapper_area_sec_uowd">',
+//        '#suffix' => '</div>',
+//      );
+
+  $ru = $form_state['values']['rural_urban'];
+ if($ru == 'rural'){
+    $ru_val = 'R';
+ } 
+ if($ru == 'urban'){
+        $ru_val = 'U';
+
+ }
+    
+    $form['rural_urban'] = array(
+      '#type' => 'radios',
+      '#title' => t('Select Area'),
+       '#options' => array(
+         'rural' => t('Rural'),
+         'urban' => t('Urban'),
+        ),
+       '#required' => TRUE,
+      '#default_value' => $session_rural, 
+      '#prefix' => '<div id="wrapper_area_choice">',
+      '#suffix' => '</div>',
+      '#ajax' => array(
+            'callback' => 'ajax_callback_rural_urban_post',
+            'wrapper' => 'wrapper_rural_urban',
+            
+        ),
+
+      );
+
+     
+    if(($role == 'MOLE') ||($user->uid == 1)){
+            $state_list = _get_location('state','','','','',$ru_val);
+          }
+          if(($role == 'State') || ($role == 'District') || ($role == 'Tehsil') || ($role == 'Agent')){
+            $state_value = $user_info->field_state['und'][0]['value'];
+            $state_list_data = _get_location('state','','','','',$ru_val);
+            $state_list[$state_value] = $state_list_data[$state_value];
+          }
+          if(($role == 'Agency')){
+            $state_value = $result['state'];
+            $state_list_data = _get_location('state','','','','',$ru_val);
+            $state_list[$state_value] = $state_list_data[$state_value];
+          }
+   $session_state = ($_SESSION['reg_state_value'] !='') ? $_SESSION['reg_state_value']: key($state_list);
+
+   // $state_list = _get_location('state');
+    
+  $state_selected = isset($form_state['values']['state']) ? $form_state['values']['state'] : $session_state;
+    //$state_val = _drupal_session_read('state_value');
+    
+    $form['state'] = array(
+        '#title' => 'State',
+        '#type' => 'select',
+        '#options' => $state_list,
+        '#default_value' => $state_selected,
+        '#required' => TRUE,
+        '#ajax' => array(
+            'callback' => 'ajax_callback_state',
+            'wrapper' => 'wrapper_state',
+            
+        ),
+        
+    );
+
+     if(($role == 'District') || ($role == 'Tehsil') || ($role == 'Agent')){
+          $district_value = $user_info->field_district['und'][0]['value'];
+          $district_list_data = _get_location('district',$state_selected,'','','',$ru_val);
+          $district_list[$district_value] = $district_list_data[$district_value];
+     }
+
+    if(($role == 'State')||($role == 'MOLE') ||(($user->uid == 1))){
+        $district_list = _get_location('district',$state_selected,'','','',$ru_val);
+    }
+    if(($role == 'Agency') ){
+          $district_value = $result['district'];
+          $district_list_data = _get_location('district',$state_selected,'','','',$ru_val);
+          $district_list[$district_value] = $district_list_data[$district_value];
+    }
+        
+     $session_district = ($_SESSION['reg_district_value'] !='') ? $_SESSION['reg_district_value']: key($district_list);
+
+
+  //  $district_list = _get_location('district',$state_selected);
+    $district_selected = isset($form_state['values']['district']) ? $form_state['values']['district'] : $session_district;
+    $form['district'] = array(
+        '#title' => 'District',
+        '#type' => 'select',
+        '#options' => $district_list,
+        '#default_value' => $district_selected,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_state">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_district',
+            'wrapper' => 'wrapper_tehsil',
+            
+        ),
+        
+    );
+
+    if(($role == 'Tehsil') || ($role == 'Agent')){
+          $tehsil_value = $user_info->field_tehsil['und'][0]['value'];
+          $tahsil_list_data = _get_location('tehsil',$state_selected,$district_selected,'','',$ru_val);
+          $tehsil_list[$tehsil_value] = $tahsil_list_data[$tehsil_value];
+        }
+
+    if(($role == 'State') || ($role == 'District') || ($role == 'MOLE')||($user->uid == 1)){
+    $tehsil_list = _get_location('tehsil',$state_selected,$district_selected,'','',$ru_val);
+    }
+    
+    if( ($role == 'Agency')){
+    
+    $tehsil_value = $result['tehsil'];
+    $tehsil_list_data = _get_location('tehsil',$state_selected,$district_selected,'','',$ru_val);
+    $tehsil_list[$tehsil_value] = $tehsil_list_data[$tehsil_value];
+    $tehsil_selected = isset($form_state['values']['tehsil']) ? $form_state['values']['tehsil'] : key($tehsil_list); 
+
+    }
+
+     $session_tehsil = ($_SESSION['reg_tehsil_value'] !='') ? $_SESSION['reg_tehsil_value']: key($tehsil_list);
+
+    
+  //  $tehsil_list = _get_location('tehsil',$state_selected,$district_selected);
+    $tehsil_selected = isset($form_state['values']['tehsil']) ? $form_state['values']['tehsil'] : $session_tehsil; 
+    $form['tehsil'] = array(
+        '#title' => 'Tehsil',
+        '#type' => 'select',
+        '#options' => $tehsil_list,
+        '#default_value' => $tehsil_selected,
+         '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_tehsil">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_tehsil',
+            'wrapper' => 'wrapper_village',
+            
+        )
+    );
+    
+
+        if(($role == 'Agent')){
+      
+         $village_value = $user_info->field_village['und'][0]['value'];
+          $village_list_data = _get_location('village',$state_selected,$district_selected,$tehsil_selected,'',$ru_val);
+          $village_list[$village_value] = $village_list_data[$village_value];
+        }
+
+    if(($role == 'Tehsil') || ($role == 'State') || ($role == 'District') || ($role == 'MOLE')||($user->uid == 1)){
+    $village_list = _get_location('village',$state_selected,$district_selected,$tehsil_selected,'',$ru_val);
+    }
+    
+    if( ($role == 'Agency')){
+               $r_u_v = ($ru_val !='') ? $ru_val: $_SESSION['r_u'];
+
+            $village_list_data = _get_location('village',$state_selected,$district_selected,$tehsil_selected,'',$r_u_v);
+            $vill_value = explode(',', $result['village']);
+                 
+            $village_list = array();
+            foreach ($vill_value as $key => $village_data) {
+                    $village_list[$village_data] = $village_list_data[$village_data];
+            }
+            $vill_session_value = isset($_SESSION['reg_dow_village_value']) ? $_SESSION['reg_dow_village_value'] : key($village_list);
+            $village_selected = isset($form_state['values']['village']) ? $form_state['values']['village'] : $vill_session_value;
+
+    }
+
+     $session_village = ($_SESSION['reg_village_value'] !='') ? $_SESSION['reg_village_value']: key($village_list);
+
+    //$village_list = _get_location('village',$state_selected,$district_selected,$tehsil_selected);
+    $village_selected = isset($form_state['values']['village']) ? $form_state['values']['village'] : $session_village;
+    $form['village'] = array(
+        '#title' => 'Village/Town',
+        '#type' => 'select',
+        '#options' => $village_list,
+        '#default_value' => $village_selected,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_village">',
+        '#suffix' => '</div>',
+//        '#ajax' => array(
+//            'callback' => 'ajax_callback_state',
+//            'wrapper' = > 'wrapper_state',
+//            
+//        )
+    );
+     
+ $person_selected = ($_SESSION['reg_person_name'] !='') ? $_SESSION['reg_person_name']: '';
+
+ $form['person_name'] = array(
+    '#type' => 'textfield', 
+    '#title' => t('Name Of Person sounding Like..'), 
+    '#default_value' => $person_selected,
+    '#size' => 30, 
+    '#maxlength' => 128, 
+);
+ $find_house_hold_id = ($_SESSION['reg_house_hold_id'] !='') ? $_SESSION['reg_house_hold_id']: '';
+ $form['house_hold_id'] = array(
+    '#type' => 'textfield', 
+    '#title' => t('AHL Tin'), 
+    '#default_value' => $find_house_hold_id,
+    '#size' => 30, 
+    '#maxlength' => 128, 
+);
+    
+ $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+
+ $form['reset'] = array(
+    '#type' => 'submit',
+    '#submit' => array('reg_search_reset'),
+    '#value' => t('Reset'),
+  );
+
+if(!empty($_SESSION['village_value'])){
+ $form['print_listperson']  = array(
+      '#type' => 'markup',
+      '#markup' =>t($print),      
+       );
+}
+ /*Start code to display the results*/
+ //$session_id = _drupal_session_read('house_id');
+ 
+ $fst = 'registered_';
+ $sec = $_SESSION['reg_rural_urban_value'];
+ $tbl = $fst.''.$sec;
+ //drupal_set_message('r_u_session value are'.$_SESSION['reg_state_value'].' ');
+ if($session_district == 0){
+  $session_district ='';
+ }
+ if($session_tehsil == 0){
+  $session_tehsil ='';
+ }
+ if($session_village == 0){
+  $session_village ='';
+ }
+
+ if(!empty($tbl) && !empty($_SESSION['reg_state_value'])){
+ $person_name = $_SESSION['reg_person_name'];
+ $search_ahltin = $_SESSION['reg_house_hold_id'];
+  
+ $house_hold_id = $session_state.''.$session_district.''.$session_tehsil.''.$session_village;
+ //drupal_set_message('And table name'.$tbl.".individual_21".'house hold id'.$house_hold_id.'');
+  
+ $post_header = array('S.N','AHL TIN','House-Hold ID', 'Member S.No','Name', 'Name(Regional)','Fathers\'s Name','Mother\'s Name','Occupation','YoB (YYYY)/DoB (DD/MM/YYYY)','HoF','Gender','Relation With HOF','Unorganised Worker');
+
+//        $query = db_select($tbl.".individual_".$_SESSION['reg_state_value'], "n");
+//        $query->fields('n');
+//        $query->condition('n.house_hold_id',db_like($house_hold_id) . '%', 'LIKE');
+//        if(!empty($person_name)){
+//         $query->condition('n.name', '%'.db_like($person_name) . '%', 'LIKE');
+//        }
+//        if(!empty($search_ahltin)){
+//         $query->condition('n.ahl_tin',$search_ahltin);
+//        }
+//        $query = $query->extend('TableSort')->extend('PagerDefault')->limit(20);
+//        $result = $query->execute();
+ 
+ 
+// echo $session_state;
+// echo "<br>";
+// echo $session_district;
+// echo "<br>";
+//  echo $session_tehsil;
+// echo "<br>";
+// echo $session_village;
+     
+        $query = db_select($tbl.".individual_".$_SESSION['reg_state_value'], "n");
+        $query->fields('n');
+        $query->condition('n.statecode', $session_state, '=');
+        $query->condition('n.districtcode', $session_district, '=');
+        $query->condition('n.tehsilcode', $session_tehsil, '=');
+        $query->condition('n.towncode', $session_village, '=');
+
+        if(!empty($person_name)){
+          $query->condition('n.name', '%'.db_like($person_name) . '%', 'LIKE');
+       }
+       if(!empty($search_ahltin)){
+          $query->condition('n.ahl_tin',$search_ahltin);
+       }
+       $query->orderBy('n.house_hold_id','ASC');
+       $query = $query->extend('TableSort')->extend('PagerDefault')->limit(20);
+       $result = $query->execute();
+
+  
+  $rows = array();
+  $page =($_GET['page']*20);
+
+if ($_SESSION['reg_village_value'] != ''){
+                $i = $page+1;
+                $ru_or_ur = $_SESSION['reg_rural_urban_value'];
+                          while($data = $result->fetchObject()){
+
+                            if($data->unorganised == 1){
+                              $uw = 'Yes';
+                            }
+                            else{
+                             $uw = 'No';
+                            }
+                            // Fill the table rows
+                              $edit_sch = 'secc_'.$_SESSION['reg_rural_urban_value'];
+                              
+                              $edit = l('Edit','labour/'.$data->ahl_tin.'/edit', array('query' => array('mode' => $_GET['q']),'html' => TRUE));
+                              $delete = l('Delete','labour/'.$data->ahl_tin.'/'.$edit_sch.'/delete', array('query' => array('mode' => $_GET['q']),'html' => TRUE));
+                              
+                            $querynode = db_select('general.relationship', 'n');
+                                          $querynode->fields('n' ,array('name'));
+                                          $querynode->condition('n.code',$data->relation_uwssp,'=');
+                              $resultn = $querynode->execute()->fetchAssoc();
+                              //print_r($resultn['name']);
+
+                              if($data->uw_record == 'u'){
+                            $uw_record = 'State Govt';
+                            } elseif($data->uw_record == 'm'){
+                                $uw_record = 'MoLE';
+                            }else{
+                             $uw_record = '';
+                            }
+                              if($uw_record != ''){
+                                        $un_worker_status = 'Yes';
+                                    }else{
+                                        $un_worker_status = 'No';
+                                    }
+                              //rows for rural
+                              $rows[$data->ahl_tin] = array(
+                              $i,    
+                              $data->ahl_tin,
+                              $data->house_hold_id,
+                              $data->slnomember,//$un_worker_status,    
+                              $data->name,
+                              t($data->name_sl),    
+                              $data->fathername,
+                              $data->mothername,
+                              $data->occupation,
+                              $data->yob,    
+                              get_hof($data->hof),
+                              get_gender($data->genderid),
+                              $resultn['name'],
+                              $uw,
+                          );
+                             
+                            $i++;
+                        }
+                        
+
+               $form['labour_select'] = array(
+                //'#type' => 'tableselect',   
+                '#theme' => 'table',
+                '#header' => $post_header,
+                '#rows' => $rows,
+                '#empty' => t('Post Registration Data Not Found.'),
+                '#prefix' => "<div id='my_printable_div'>",
+                            '#suffix' => "</div>",
+              );
+                        
+ } 
+
+    $form['pager'] = array('#markup' => theme('pager'));
+
+    }  
+
+    return $form;
+    
+}
+
+
+function post_regis_validate($form,$form_state){
+ 
+    
+    $choose_state = $form_state['values']['state'];
+    $choose_ru_ur = $form_state['values']['rural_urban'];
+    $pre_secc = 'registered_';
+    $tbl = $pre_secc.''.$choose_ru_ur;
+    
+   $new_tbl_name = $tbl.".individual_".$choose_state;
+
+    
+    if(db_table_exists($new_tbl_name)){
+             //form_set_error('', t('State table Does not exist'));  
+    }else{
+        form_set_error('', t('Table Does Not Exist'));  
+    }
+    //form_set_error('', t('sfsdf sdf sdf sdf')); 
+}
+
+function post_regis_submit($form,$form_state){
+ 
+    if($form_state['values']['state'] != '0'){
+           $_SESSION['reg_state_value'] =  $form_state['values']['state'];
+
+       }
+       if ($form_state['values']['district'] != '') {
+            $_SESSION['reg_district_value'] =  $form_state['values']['district'];
+           
+       }
+       if ($form_state['values']['tehsil'] != '') {
+                    $_SESSION['reg_tehsil_value'] =  $form_state['values']['tehsil'];
+
+       }
+       if ($form_state['values']['village'] != '') {
+
+                 $_SESSION['reg_village_value'] =  $form_state['values']['village'];
+
+       }
+        if ($form_state['values']['secc_uw'] != '') {
+
+                 $_SESSION['reg_secc_uw_value'] =  $form_state['values']['secc_uw'];
+
+       }
+        if ($form_state['values']['rural_urban'] != '') {
+
+                 $_SESSION['reg_rural_urban_value'] =  $form_state['values']['rural_urban'];
+
+       }
+       if ($form_state['values']['person_name'] != '') {
+
+                 $_SESSION['reg_person_name'] =  $form_state['values']['person_name'];
+
+       }
+       if ($form_state['values']['house_hold_id'] != '') {
+
+                 $_SESSION['reg_house_hold_id'] =  $form_state['values']['house_hold_id'];
+
+       }
+        $ru = $form_state['values']['reg_rural_urban_value'];
+       if($ru == 'rural'){
+           $_SESSION['r_u']= 'R';
+       } else{
+               $_SESSION['r_u'] = 'U';
+
+       }
+
+}
+
+function reg_search_reset(){
+
+        if($_SESSION['reg_state_value'] !=''){
+              unset($_SESSION['reg_state_value']);
+            }
+            if($_SESSION['reg_district_value'] !=''){
+              unset($_SESSION['reg_district_value']);
+            }
+
+            if($_SESSION['reg_tehsil_value'] !=''){
+              unset($_SESSION['reg_tehsil_value']);
+            }
+            if($_SESSION['reg_village_value'] !=''){
+              unset($_SESSION['reg_village_value']);
+            }
+            if($_SESSION['reg_secc_uw_value'] !=''){
+               unset($_SESSION['reg_secc_uw_value']);
+            }
+            if($_SESSION['reg_rural_urban_value'] !=''){
+              unset($_SESSION['reg_rural_urban_value']);
+            }
+   
+           if($_SESSION['reg_person_name'] !=''){
+              unset($_SESSION['reg_person_name']);
+            }
+            
+            if($_SESSION['reg_house_hold_id'] !=''){
+              unset($_SESSION['reg_house_hold_id']);
+            }
+            
+            
+}
+
+
+function ajax_callback_rural_urban_post($form, $form_state){
+
+         $form_field_r_u = $form_state['values']['rural_urban'];
+         
+
+  // return $form['wrapper_rurul_urban'] = $r_u;
+
+    $form_field_state = $form['state'];
+    $form_field_district = $form['district'];
+    $form_field_tehsil = $form['tehsil'];
+    $form_field_village = $form['village'];
+   
+       return array(
+           '#type' => 'ajax',
+           '#commands' => array(
+           ajax_command_replace("#wrapper_state", render($form_field_district)),                      
+           ajax_command_replace("#wrapper_tehsil", render($form_field_tehsil)),
+           ajax_command_replace("#wrapper_village", render($form_field_village))    
+           )
+   );
+
+}

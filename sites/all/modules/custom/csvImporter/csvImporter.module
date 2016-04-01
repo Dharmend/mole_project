@@ -1,0 +1,443 @@
+<?php
+
+function csvImporter_permission() {
+  return array(
+    'Import CSV labour data' => array(
+      'title' => t('Import labour Data through csv importer'),
+    ),
+    
+  );
+}
+
+function csvImporter_menu() {
+      $items['csvImporter'] = array(
+        'title' => t('Upload Offline Registration Data of a Village'),
+        //'description' => 'Import content from a <abbr title="Comma Separated Values">CSV</abbr> file.',
+        //'access callback' => 'user_access',
+        'access arguments' => array('Import CSV labour data'),
+        'page callback' => 'csvImporter_pagecallback',
+        'type' => MENU_NORMAL_ITEM,
+      );
+      $items['new_reg/data_upload'] = array(
+        'title' => t('Upload Offline new Registration Data'),
+        'access arguments' => array('Import CSV labour data'),
+        'page callback' => 'csvImporter_newregistration',
+        'type' => MENU_NORMAL_ITEM,
+      );
+      return $items ;
+}
+
+function csvImporter_newregistration(){
+    $output = t('Comming Soon');
+    return $output;
+}
+  
+
+  function csvImporter_pagecallback(){
+    $module_path = drupal_get_path('module', 'csvImporter');
+    
+    $form = drupal_get_form('csvImporter_form');
+    
+    //$output = "<p>This tool will attempt to import CSV data";
+    $output .= drupal_render($form);
+    
+    return $output;
+  }
+
+
+  function csvImporter_form() {
+      
+   $up_rural_urban = $_SESSION['up_rural_urban'];
+      
+    $form['#attributes'] = array(
+      'enctype' => 'multipart/form-data'
+    );
+  
+    $form['rural_urban'] = array(
+      '#type' => 'radios',
+      '#title' => t('Select Area'),
+       '#options' => array(
+         'rural' => t('Rural'),
+         'urban' => t('Urban'),
+        ),
+      '#required' => TRUE,
+      '#default_value' => $up_rural_urban, 
+      '#prefix' => '<div id="wrapper_area_choice">',
+        '#suffix' => '</div>',
+
+    );
+      
+    $form['csvfile'] = array( 
+      '#title' => t('CSV File'),
+      '#type'  => 'file',
+      //'#required' => TRUE,  
+      '#description' => ($max_size = parse_size(ini_get('upload_max_filesize'))) ? t('Due to server restrictions, the <strong>maximum upload file size is !max_size</strong>. Files that exceed this size will be disregarded.', array('!max_size' => format_size($max_size))) : '',    
+    ) ;
+    
+    $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('CSV Import'),
+    ) ;
+    $form['#validate'] = array(
+      'csvImporter_validate_fileupload',
+      'csvImporter_form_validate',
+    ) ;
+    return $form ;
+  }
+
+
+  function csvImporter_validate_fileupload(&$form, &$form_state) {
+    $validators = array(
+      'file_validate_extensions' => array( 'csv' ),
+    );
+    
+    if ($file = file_save_upload('csvfile', $validators, "public://", FILE_EXISTS_REPLACE)){
+      $form_state['values']['csvupload'] = $file->destination;    
+
+      $file_state_id =  substr($file->filename,0,2); 
+      $_SESSION['file_state_id'] = $file_state_id;
+      
+      $_SESSION['csv_file_name'] = $file->filename;
+      
+          //validate file upload on server,
+    //drupal_set_message('file message name'.$file->filename.'');
+    
+    $validate_qry = db_select('activity.filedownload_log','a')
+            ->fields('a',array('id'))
+            ->condition('a.filename',$file->filename)
+            ->condition('a.up_down','upload')
+            ->execute();
+    
+    if($validate_qry->rowCount() > 0){
+        form_set_error('',t('This file is already uploaded, Please choose another file.'));
+    }
+    
+      
+    }
+    else {
+      form_set_error('csvImporter', t('Unable to copy upload file to !dest', array('!dest' => $destination)));
+    }
+    
+    
+ }
+
+
+  function csvImporter_form_validate(&$form, &$form_state) {
+      
+      
+          $key = 'lkirwf897+22#bbtrm8814z5qq=498j5';
+          $iv = '741952hheeyy66#cs!9hjv887mxx7@8y';
+          
+    if(isset( $form_state['values']['csvupload'])){
+      if ($handle = fopen($form_state['values']['csvupload'], 'r')){
+        $line_count = 1 ;
+        $first = TRUE ;
+        
+        $counter = 0;
+        while($line = fgetcsv($handle)){
+
+        }
+        fclose($handle);
+      }
+      else {
+        form_set_error('csvfile', t('Unable to read uploaded file !filepath', array('!filepath' => $form_state['values']['csvupload'])));
+      }
+    }
+  }
+
+
+  function csvImporter_form_submit(&$form, &$form_state) {
+   $state = $_SESSION['file_state_id'];       
+      if($form_state['values']['rural_urban'] != '0'){
+           $_SESSION['up_rural_urban'] =  $form_state['values']['rural_urban'];
+
+       }
+       
+    $batch = array(
+      'title' => t('Importing CSV ...'),
+      'operations' => array(),
+      'init_message' => t('Commencing'),
+      'progress_message' => t('Processed @current out of @total.'),
+      'error_message' => t('An error occurred during processing'),
+      'finished' => 'csvImporter_import_finished',
+    );
+    if(isset( $form_state['values']['csvupload'] ) ) {
+      if($handle = fopen($form_state['values']['csvupload'], 'r') ) {
+        $batch['operations'][] = array('_csvImporter_remember_filename', array($form_state['values']['csvupload']) ) ;
+        $line_count = 1 ;
+        $first = TRUE ;
+        $line = fgetcsv($handle);
+        while($line = fgetcsv($handle)){
+            
+          //drupal_set_message('<pre>'.print_r($line,TRUE).'</pre>');
+          $up_sc = 'registered_'.$_SESSION['up_rural_urban'];
+          $secc_update = 'secc_'.$_SESSION['up_rural_urban'];
+          $ahl_tin = $line[15];//ahl_tin
+          $de_dip_check = register_labour_load($up_sc,$ahl_tin);
+          
+          if($de_dip_check){
+              
+              form_set_error('',t('This AHL Tin @ahl_tin is already exist in Database.', array('@ahl_tin' => $ahl_tin)));
+              
+          }else {
+              
+//drupal_set_message(' ekey val '.$line[2].'and session val '.$_SESSION['up_rural_urban'].'');
+if(($line[0] != '') && ($line[0] != 'house_hold_id')){
+
+          $key = 'lkirwf897+22#bbtrm8814z5qq=498j5'; // 32 * 8 = 256 bit key
+          $iv = '741952hheeyy66#cs!9hjv887mxx7@8y'; // 32 * 8 = 256 bit iv
+//die('sss');
+
+$qs = trim(trim(decryptRJ256($key,$iv,$line[0])).trim(decryptRJ256($key,$iv,$line[4])).trim(decryptRJ256($key,$iv,$line[15])).trim(decryptRJ256($key,$iv,$line[3])).trim(decryptRJ256($key,$iv,$line[7])).trim(decryptRJ256($key,$iv,$line[10])).trim(decryptRJ256($key,$iv,$line[17])));
+$ekeyvs = trim(str_replace(' ', '', $qs));
+$check_mds = md5($ekeyvs);
+ 
+//print  decryptRJ256($key,$iv,$line[18]);
+ 
+ if(trim($form_state['values']['rural_urban']) != trim(decryptRJ256($key,$iv,$line[2]))){
+    form_set_error('',t('Please Select the correct Area')); // added in hook_validation
+
+ }
+else{
+//if ($check_mds == decryptRJ256($key,$iv,$line[67])){
+
+                                               $ahlv = decryptRJ256($key,$iv,$line[15]);
+                                               $df_state_ssid = substr($ahlv ,2,2);
+                                               $df_district_ssid = substr($ahlv ,4,2);
+                                               $df_tehsil_ssid = substr($ahlv ,6,3);
+                                               $df_village_ssid = substr($ahlv ,9,4);
+
+                        
+                                    $data = array(
+                                            'house_hold_id' => ($line[0]=='') ? '' : trim(decryptRJ256($key,$iv,$line[0])),
+                                            'tin_npr' => ($line[1]=='') ? '' : trim(decryptRJ256($key,$iv,$line[1])),
+                                            //'r_u' => ($line[2]=='') ? '' : decryptRJ256($key,$iv,$line[2]),
+                                            'statecode' => trim($df_state_ssid),
+                                            'districtcode' => trim($df_district_ssid),
+                                            'tehsilcode' => trim($df_tehsil_ssid),
+                                            'towncode ' => trim($df_village_ssid),
+                                            'slnomember' => ($line[3]=='') ? '' : trim(decryptRJ256($key,$iv,$line[3])),
+                                            'name' => ($line[4]=='') ? '' : trim(decryptRJ256($key,$iv,$line[4])),
+                                            'name_sl' => ($line[5]=='') ? '' : trim($line[5]),
+                                            'relation' => ($line[6]=='') ? '' : trim(decryptRJ256($key,$iv,$line[6])),
+                                            'genderid' => ($line[7]=='') ? '' : trim(decryptRJ256($key,$iv,$line[7])),
+                                            'dob' => ($line[8]=='') ? '' : trim(decryptRJ256($key,$iv,$line[8])),
+                                            'mstatusid' => ($line[9]=='') ? '' : trim(decryptRJ256($key,$iv,$line[9])),
+                                            'fathername' => ($line[10]=='') ? '' : trim(decryptRJ256($key,$iv,$line[10])),
+                                            'mothername' => ($line[11]=='') ? '' : trim(decryptRJ256($key,$iv,$line[11])),
+                                            'occupation' => ($line[12]=='') ? '' : trim(decryptRJ256($key,$iv,$line[12])),
+                                            'educode' => ($line[13]=='') ? '' : trim(decryptRJ256($key,$iv,$line[13])),
+                                            'education_other' => ($line[14]=='') ? '' : trim(decryptRJ256($key,$iv,$line[14])),
+                                            'ahl_tin' => trim(decryptRJ256($key,$iv,$line[15])),
+                                            'age' => ($line[16]=='') ? '' : trim(decryptRJ256($key,$iv,$line[16])),
+                                            'yob' => ($line[17]=='') ? '' : trim(decryptRJ256($key,$iv,$line[17])),
+                                            'hof' => ($line[18]=='') ? '' : trim(decryptRJ256($key,$iv,$line[18])),
+                                            //extra fieds
+                                            'e_id' => ($line[19]=='') ? '' : trim(decryptRJ256($key,$iv,$line[19])),
+                                            'aadhaar' => ($line[20]=='') ? '' : trim(decryptRJ256($key,$iv,$line[20])),
+                                            'bank_account_no' => ($line[21]=='') ? '' : trim(decryptRJ256($key,$iv,$line[21])),
+                                            'bank_name' => ($line[22]=='') ? '' : trim(decryptRJ256($key,$iv,$line[22])),
+                                            'bank_branch' => ($line[23]=='') ? '' : trim(decryptRJ256($key,$iv,$line[23])),
+                                            'primary_occupation_code' => ($line[24]=='') ? '' : trim(decryptRJ256($key,$iv,$line[24])),
+                                            'secondary_occupation_code' => ($line[25]=='') ? '' : trim(decryptRJ256($key,$iv,$line[25])),
+                                            'p_address1' => ($line[26]=='') ? '' : trim(decryptRJ256($key,$iv,$line[26])),
+                                            'p_address2' => ($line[27]=='') ? '' : trim(decryptRJ256($key,$iv,$line[27])),
+                                            'p_villagetown' => ($line[28]=='') ? '' : trim(decryptRJ256($key,$iv,$line[28])),
+                                            'p_district' => ($line[29]=='') ? '' : trim(decryptRJ256($key,$iv,$line[29])),
+                                            'p_state' => ($line[30]=='') ? '' : trim(decryptRJ256($key,$iv,$line[30])),
+                                            'p_pincode' => ($line[31]=='') ? '' : trim(decryptRJ256($key,$iv,$line[31])),
+                                            'c_address1' => ($line[32]=='') ? '' : trim(decryptRJ256($key,$iv,$line[32])),
+                                            'c_address2' => ($line[33]=='') ? '' : trim(decryptRJ256($key,$iv,$line[33])),
+                                            'c_villagetown' => ($line[34]=='') ? '' : trim(decryptRJ256($key,$iv,$line[34])),
+                                            'c_district' => ($line[35]=='') ? '' : trim(decryptRJ256($key,$iv,$line[35])),
+                                            'c_state' => ($line[36]=='') ? '' : trim(decryptRJ256($key,$iv,$line[36])),
+                                            'c_pincode' => ($line[37]=='') ? '' : trim(decryptRJ256($key,$iv,$line[37])),
+                                            'aadhaar_yesno' => ($line[38]=='') ? '' : trim(decryptRJ256($key,$iv,$line[38])),
+                                            'beggars_dw_sv_hbw_adwi_wages' => ($line[39]=='') ? '' : trim(decryptRJ256($key,$iv,$line[39])),
+                                            'construction_pl_sw_tw_sw' => ($line[40]=='') ? '' : trim(decryptRJ256($key,$iv,$line[40])),
+                                            'p_tehsil' => ($line[41]=='') ? '' : trim(decryptRJ256($key,$iv,$line[41])),
+                                            'c_tehsil' => ($line[42]=='') ? '' : trim(decryptRJ256($key,$iv,$line[42])),
+                                            'lessthan_10000' =>($line[43]=='') ? '' : trim(decryptRJ256($key,$iv,$line[43])),
+                                            'landlessthan_4acres' => ($line[44]=='') ? '' : trim(decryptRJ256($key,$iv,$line[44])),
+                                            'house_based' => ($line[45]=='') ? '' : trim(decryptRJ256($key,$iv,$line[45])),
+                                            'Photograph' => ($line[46]=='') ? '' : trim(decryptRJ256($key,$iv,$line[46])),
+                                            'income' => ($line[47]=='') ? '' : trim(decryptRJ256($key,$iv,$line[47])),
+                                            'mobile_num' => ($line[48]=='') ? '' : trim(decryptRJ256($key,$iv,$line[48])),
+                                            'ifsc_code' => ($line[49]=='') ? '' : trim(decryptRJ256($key,$iv,$line[49])),
+                                            'actual_self_decleration' => ($line[50]=='') ? '' : trim(decryptRJ256($key,$iv,$line[50])),
+                                            'mothername_uwssp' => ($line[51]=='') ? '' : trim(decryptRJ256($key,$iv,$line[51])),
+                                            'fathername_uwssp' => ($line[52]=='') ? '' : trim(decryptRJ256($key,$iv,$line[52])),
+                                             'agency_name' => ($line[53]=='') ? '' : trim(decryptRJ256($key,$iv,$line[53])),
+                                            'agency_id' =>($line[54]=='') ? '' : trim(decryptRJ256($key,$iv,$line[54])),
+                                            'election_id' => ($line[55]=='') ? '' : trim(decryptRJ256($key,$iv,$line[55])),
+                                            'card_issue' => ($line[56]=='') ? '' : trim(decryptRJ256($key,$iv,$line[56])),
+                                             'relation_uwssp' => ($line[57]=='') ? '' : trim(decryptRJ256($key,$iv,$line[57])),
+                                            'unorganised'    => ($line[58]=='') ? '' : trim(decryptRJ256($key,$iv,$line[58])),
+                                            'read_only_name'  => ($line[59]=='') ? '' : trim(decryptRJ256($key,$iv,$line[59])),
+                                            'read_only_hof' => ($line[60]=='') ? '' : trim(decryptRJ256($key,$iv,$line[60])),     
+                                            'read_only_dob'  => ($line[61]=='') ? '' : trim(decryptRJ256($key,$iv,$line[61])),   
+                                            'read_only_marital_status' => ($line[62]=='') ? '' : trim(decryptRJ256($key,$iv,$line[62])), 
+                                            'read_only_education' => ($line[63]=='') ? '' : trim(decryptRJ256($key,$iv,$line[63])),  
+                                            'read_only_fathername'  => ($line[64]=='') ? '' : trim(decryptRJ256($key,$iv,$line[64])),
+                                            'read_only_mothername' => ($line[65]=='') ? '' : trim(decryptRJ256($key,$iv,$line[65])), 
+                                            'read_only_occupation' => ($line[66]=='') ? '' : trim(decryptRJ256($key,$iv,$line[66])),
+                                            'kit_id' => ($line[68]=='') ? '' : trim(decryptRJ256($key,$iv,$line[68])),
+                                            'batch_id' => ($line[69]=='') ? '' : trim(decryptRJ256($key,$iv,$line[69])),
+                                            'ssid' => '',
+                                            'uw_record' => '1',
+                                        );
+
+
+                                  $result = db_insert($up_sc.'.individual_'.$df_state_ssid)
+                                                        ->fields($data)
+                                                        ->execute();
+                                  
+                            //Check duplicate record in ahltin and kitid table then insert into it,
+                             $chk_sch = 'kit_ahltin_'.$_SESSION['up_rural_urban'].'.individual_'.$df_state_ssid;
+                             
+                             $chk_qry = db_select($chk_sch,'v')
+                                        ->fields('v',array('ahl_tin','house_hold_id'))
+                                        ->condition('v.ahl_tin',decryptRJ256($key,$iv,$line[15]))
+                                        ->condition('v.kit_id', decryptRJ256($key,$iv,$line[68]))
+                                        ->execute();
+                            
+                                    if($chk_qry->rowCount() > 0){
+
+                                    }else{
+
+                                        //insert into the kit table
+
+                                        $ins_qry = db_insert($chk_sch)
+                                                  ->fields($data)
+                                                  ->execute();
+
+                                    }
+                                  
+
+                              } 
+                              
+          } 
+            
+        }    
+            
+            
+          
+          $batch['operations'][] = array('_csvImporter_import_line', array(array_map('base64_encode', $line)));        
+        }
+        
+        // Write record in log table
+        
+                $sch = 'activity'; 
+                $file_raw_val = $_SESSION['csv_file_name'];
+                $client_ip = ip_address();
+                if(substr($file_raw_val,11,6) == 'urban'){
+                    $u_r = 'U';
+                }elseif (substr($file_raw_val,11,5) == 'rural') {
+                    $u_r = 'R';
+                }
+                
+                global $user;
+                
+                $data_qry = db_insert($sch.".filedownload_log")
+                    ->fields(array(
+                    'state_code' => substr($file_raw_val,0,2) ? substr($file_raw_val,0,2) : '',
+                    'district_code' => substr($file_raw_val,2,2) ? substr($file_raw_val,2,2) : '',
+                    'tehsil_code' => substr($file_raw_val,4,3) ? substr($file_raw_val,4,3) : '',
+                    'villagetown_code' => substr($file_raw_val,7,4) ? substr($file_raw_val,7,4) : '',
+                    'urban_rural' => $u_r,
+                    'filename' => $file_raw_val,
+                    'userid' => $user->uid,
+                    'ipaddress' => $client_ip,
+                    'record_count' => '6756',
+                    'up_down' => 'upload'    
+                    ))
+                    ->execute();
+        
+        
+        
+        fclose($handle);
+      } // we caught this in csvImporter_form_validate()
+    } // we caught this in csvImporter_form_validate()
+    batch_set($batch);
+  }
+  
+
+function csvImporter_import_finished($success, $results, $operations) {
+    if ( !empty($results['failed_rows']) ) {
+      $dir  = file_directory_path() . '/csvImporter/' ;
+      if ( file_check_directory( $dir, FILE_CREATE_DIRECTORY ) ) {
+        $csv_filename = 'failed_rows-'. basename($results['uploaded_filename']); // we validated extension on upload
+        $csv_filepath = $dir .'/'. $csv_filename;
+        $targs = array(
+          '!csv_url' => l(check_plain($csv_filename), $csv_filepath),
+          '%csv_filename' => $csv_filename,
+          '%csv_filepath' => $csv_filepath,
+        ) ;
+        if ( $handle = fopen($csv_filepath, 'w+') ) {
+          foreach( $results['failed_rows'] as $failed_row ) {
+            fputcsv($handle, $failed_row);
+          }
+          fclose($handle);
+          drupal_set_message(t('Some rows failed to import. You may download a CSV of these rows: !csv_url', $targs), 'error');
+        }
+        else {
+          drupal_set_message(t('Some rows failed to import, but unable to write error CSV to %csv_filepath', $targs), 'error');
+        }
+      }
+      else {
+        drupal_set_message(t('Some rows failed to import, but unable to create directory for error CSV at %csv_directory', $targs), 'error');
+      }
+    }
+    return t('The CSV import has completed.');
+  }
+  
+  
+  function _csvImporter_remember_filename($filename, &$context) {
+    $context['results']['uploaded_filename'] = $filename;
+  }
+
+  function _csvImporter_import_line($line, $session_nid, &$context) {
+      
+    $context['results']['rows_imported']++;
+    $line = $cleaned_line = array_map('base64_decode', $line);
+    
+    
+    
+      $context['message'] = t('Importing row !c', array( '!c' => $context['results']['rows_imported'] ));
+    
+      $context['message'] = t('Importing %title', array('%title' => $line[0]));
+    
+      //drupal_set_message("Parsed line {$line[0]}");
+  
+     if ( $line[1] == 'ROW' && $line[2] == 'FAILS' ) {
+        $context['results']['failed_rows'][] = $line ;
+      }
+}
+
+
+function register_labour_load($schema_name,$ahl_tin){
+    $state_val = $_SESSION['file_state_id'];
+
+
+  
+  $query = db_select($schema_name.'.individual_'.$state_val,'secc')
+         ->fields('secc')
+         ->condition('secc.ahl_tin',$ahl_tin,'=')
+         ->execute()->fetchAssoc();
+  
+return $query;
+     
+ }
+
+
+
+function decryptRJ256($key,$iv,$string_to_decrypt)
+  {
+   $data_decrypt = base64_decode($string_to_decrypt);
+  $rtn = mcrypt_decrypt(MCRYPT_RIJNDAEL_256, $key, $data_decrypt, MCRYPT_MODE_CBC, $iv);
+  return $rtn;
+}
+
+
+
+

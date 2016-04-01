@@ -1,0 +1,10 @@
+name = Institution Management
+description = Institute Management Dharmendra Singh rajput.
+core = 7.x
+package = custom
+
+dependencies[] = entity
+dependencies[] = views
+
+;files[] = example_task.controller.inc
+

@@ -1,0 +1,4 @@
+; $Id$
+name = XML Importer
+description = Sample XML Importer Module
+core = 7.x

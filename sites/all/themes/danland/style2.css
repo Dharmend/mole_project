@@ -1,0 +1,28 @@
+*{ margin:0; padding:0;}
+body{ font-family:Arial, Helvetica, sans-serif;} 
+
+/******************Header*****************/
+#header{ float:left; width:100%;  height:96px;}
+#header #logo{ padding: 2px 0 0 0px;}
+
+/******************Content*****************/
+#content{ float:left; width:100%;}
+.wrapper{ margin:0 auto; width:950px;}
+.login-block{float:left; width:100%; padding-top:45px; padding-bottom:20px;}
+.login-image{ float:left; width:42%;}
+.login-form h2{ font-size:20px; line-height:20px; color:#016cbb; text-align:center; margin-bottom:20px;}
+
+.login-form {
+    box-sizing: border-box;
+    float: left;
+    width: 365px; padding-top:20px; padding-left:55px; padding-right:55px;
+}
+.login-form label{ float:left; width:98px; font-size:16px; }
+.login-form  li{ float:left; width:100%; margin-bottom:20px; list-style:none;}
+.login-form  li input[type="text"]{ float:left; padding-left:5px; padding-right:5px; box-sizing:border-box;}
+
+
+/********************Footer*************/
+#footer{ float:left; width:100%; background:#165c8d;}
+#footer .copy-rt{  padding:7px 14px; font-size:11px; color:#fff; line-height:17px; }
+#footer .designed{ float:right; padding:7px 14px;font-size:11px; color:#fff; display:inline-block; text-decoration:none;}

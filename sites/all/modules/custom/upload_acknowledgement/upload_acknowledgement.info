@@ -1,0 +1,6 @@
+name = Upload Acknowledgement  
+description = DUpload Acknowledgement for villagers
+core = 7.x
+package = 'custom'
+
+

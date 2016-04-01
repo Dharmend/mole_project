@@ -1,0 +1,439 @@
+<?php
+
+function agency_dis_mapping_menu(){
+    $items['agency-dis-map'] = array(
+        'title' => 'District wise mapping of IA card (Issuance Aurthority Card)',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('agency_dis_mapping'),
+        'access arguments' => array('agency district mapping'),
+        'type' => MENU_NORMAL_ITEM,
+     );
+    $items['card-print-agency-mapping'] = array(
+        'title' => 'Mapping Of Card Printing Agency to IA card',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('cardprinting_agency_mapping'),
+        'access arguments' => array('agency district mapping'),
+        'type' => MENU_NORMAL_ITEM,
+     );
+    return $items;
+}
+
+
+
+function agency_dis_mapping_permission(){
+  return array(
+    'agency district mapping' => array(
+      'title' => t('agency district mapping'),
+    ),
+     
+  );
+}
+
+function cardprinting_agency_mapping($form,&$form_state){
+    global $user;   
+    
+    $form['desc'] = array(
+        '#type' => 'markup',
+        '#markup' => t('Mapping of Card Printing Agency To IA card'),
+    );
+    
+    $qry = db_select('node','n')
+            ->fields('n',array('title','nid'))
+            ->condition('n.type','card_printing_agency')
+            ->condition('n.status',1)
+            ->execute();
+    $agency_list = array('Select');    
+    
+    foreach ($qry as $data){
+        $agency_list[$data->nid] = $data->title;
+        
+    }
+    
+            
+    
+    
+  //$district_list = _get_location('district',$state_selected);
+    $form['cardp-agency'] = array(
+        '#title' => 'Card Printing Agency',
+        '#type' => 'select',
+        '#options' => $agency_list,
+        '#default_value' => $district_selected,
+        '#required' => TRUE,
+        '#multiple' => TRUE,
+        '#prefix' => '<div id="wrapper_state">',
+        '#suffix' => '</div>',
+//        '#ajax' => array(
+//            'callback' => 'ajax_callback_district',
+//            'wrapper' => 'wrapper_tehsil',
+//            
+//        ),
+   );
+
+    $ag_state_val = $_SESSION['ag_dis_map_state_value'];
+        
+        
+    $header = array('State','Requester Name', 'Address', 'Card Requested');
+    
+    $query = db_select('card_register', 'cr');
+    $query->fields('cr');
+    $query->condition('approved', '1', '=');
+    $query->condition('type_card_request', '8', '=');// Allow only IA card request
+
+    $query = $query->extend('TableSort')->extend('PagerDefault')->limit(20);
+    $result = $query->execute();
+    
+    $rows = array();
+    $i = 1;
+    while($data = $result->fetchAssoc()){
+                    
+                    $state_list = _get_location('state');
+                    $term = taxonomy_term_load($data['type_card_request']);
+                    $cardname = $term->name;
+                    
+                    $State = $state_list[$data['state']];
+                  // Fill the table rows
+                    $rows[$data['id']] = array(
+                    //$i,
+                    $State,      
+                    $data['authority_card_holder'],
+                    $data['official_address1'].', '.$data['official_address2'],
+                    $cardname,
+                  //  $data['no_of_card_request'],
+                 //   $data['approved'],    
+                   
+                );
+                  $i++;
+   }
+                    
+                $form['ia_card'] = array(
+                    '#type' => 'tableselect',   
+                    //'#theme' => 'table',
+                    '#header' => $header,
+                    '#options' => $rows,
+                    '#multiple' => FALSE,
+                    '#empty' => t('No Data Found.'),
+                    '#prefix' => "<div id='my_printable1_div'>",
+                    '#suffix' => "</div>",
+                 );
+   
+   
+                    
+                $form['move'] = array(
+                           '#type' => 'submit',
+                           '#value' => t('Assign'),
+                           '#submit' => array('agency_dis_mapping_submit'),
+                           '#validate' => array('assign_value_validate'), 
+                );
+                
+                //Display the listing of the assigned district to the IA card authority
+                global $user;
+                $aa = user_load($user->uid);
+                $sta_val = $aa->field_state['und'][0]['value'];
+                
+                           $res_qry = db_select('activity.iacard_mapping','am');
+                           $res_qry->fields('am');
+                           $res_qry->condition('state_id',$sta_val);
+                           $res_result = $res_qry->execute();
+                           
+                    $res_rows = array();
+                    $i = 1;
+                    while($res_data = $res_result->fetchAssoc()){
+
+                                    $state_list = _get_location('state');
+                                    $district_list = _get_location('district',$sta_val);
+                                    $term = taxonomy_term_load($res_data['type_card_request']);
+                                    $cardname = $term->name;
+                                    
+
+                                    $State = $state_list[$res_data['state_id']];
+                                    $district = $district_list[$res_data['districts']];
+                                  // Fill the table rows
+                                    $res_rows[$res_data['id']] = array(
+                                    $i,
+                                    $State,      
+                                    $district,
+                                    $res_data['iacard_id'],
+                                 );
+                                  $i++;
+                   }
+                           
+                $head_top = array('S.N','State', 'District','iacard_id');
+                $form['iac_result_msg'] = array(
+                   '#type' => 'item',
+                   '#markup' => t('<strong> List of Assigned district to the IA Card </strong>'),  
+                 );
+                 
+                $form['ia_card_result'] = array(
+                    '#theme' => 'table',
+                    '#header' => $head_top,
+                    '#rows' => $res_rows,
+                    '#empty' => t('No Data Found.'),
+                    '#prefix' => "<div id='ia_card_result'>",
+                    '#suffix' => "</div>",
+                 );
+  
+  return $form;
+    
+}
+
+function agency_dis_mapping($form, &$form_state){
+    
+  global $user;
+
+  $role = end($user->roles);
+  $user_info = user_load($user->uid);
+ 
+  $house_id = $dow_state.''.$dow_district.''.$dow_tehsil.''.$dow_village;
+  
+if(($role == 'MOLE')||($user->uid == 1)){
+              $state_list = _get_location('state');
+              $state_selected = isset($form_state['values']['state']) ? $form_state['values']['state'] : key($state_list);
+
+          //  $state_list[$state_value] = $state_list_data[$state_value];
+          }
+   
+          if(($role == 'District') || ($role == 'State') || ($role == 'Tehsil')){
+            $state_value = $user_info->field_state['und'][0]['value'];
+            $state_list_data = _get_location('state');
+            $state_list[$state_value] = $state_list_data[$state_value];
+            $state_selected = isset($form_state['values']['state']) ? $form_state['values']['state'] : $state_value;
+
+          }
+      $edit_id=arg(2);
+     $query = db_select('agency_record', 'ag_r');
+              $query->fields('ag_r');
+              $query->condition('ag_r.id',$edit_id,'=');
+     $result = $query->execute()->fetchAssoc();
+  
+    
+    
+    $form['state'] = array(
+        '#title' => 'State',
+        '#type' => 'select',
+        '#options' => $state_list,
+        '#default_value' => $state_selected,
+        '#required' => TRUE,
+        '#ajax' => array(
+            'callback' => 'ajax_callback_state',
+            'wrapper' => 'wrapper_state',
+            
+        ),
+    );
+
+
+if(($role == 'MOLE')||($user->uid == 1) || ($role == 'State')){
+          $district_list = _get_location('district',$state_selected);
+          $tehsil_value = isset($_SESSION['ag_dis_map_district_value']) ? $_SESSION['ag_dis_map_district_value'] : key($district_list); 
+          $district_selected = isset($form_state['values']['ag_des_district']) ? $form_state['values']['ag_des_district'] : $tehsil_value;
+
+          //  $state_list[$state_value] = $state_list_data[$state_value];
+          }
+
+     if(($role == 'District') || ($role == 'Tehsil')){
+          $district_value = $user_info->field_district['und'][0]['value'];
+          $district_list_data = _get_location('district',$state_selected);
+          $district_list[$district_value] = $district_list_data[$district_value];
+          $district_selected = isset($form_state['values']['ag_des_district']) ? $form_state['values']['ag_des_district'] : key($district_list);
+        }
+
+    
+  //$district_list = _get_location('district',$state_selected);
+    $form['ag_des_district'] = array(
+        '#title' => 'District',
+        '#type' => 'select',
+        '#options' => $district_list,
+        '#default_value' => $district_selected,
+        '#required' => TRUE,
+        '#multiple' => TRUE,
+        '#prefix' => '<div id="wrapper_state">',
+        '#suffix' => '</div>',
+//        '#ajax' => array(
+//            'callback' => 'ajax_callback_district',
+//            'wrapper' => 'wrapper_tehsil',
+//            
+//        ),
+   );
+
+    $ag_state_val = $_SESSION['ag_dis_map_state_value'];
+        
+        
+    $header = array('State','Requester Name', 'Address', 'Card Requested');
+    
+    $query = db_select('card_register', 'cr');
+    $query->fields('cr');
+    $query->condition('approved', '1', '=');
+    $query->condition('type_card_request', '8', '=');// Allow only IA card request
+
+    $query = $query->extend('TableSort')->extend('PagerDefault')->limit(20);
+    $result = $query->execute();
+    
+    $rows = array();
+    $i = 1;
+    while($data = $result->fetchAssoc()){
+                    
+                    $state_list = _get_location('state');
+                    $term = taxonomy_term_load($data['type_card_request']);
+                    $cardname = $term->name;
+                    
+                    $State = $state_list[$data['state']];
+                  // Fill the table rows
+                    $rows[$data['id']] = array(
+                    //$i,
+                    $State,      
+                    $data['authority_card_holder'],
+                    $data['official_address1'].', '.$data['official_address2'],
+                    $cardname,
+                  //  $data['no_of_card_request'],
+                 //   $data['approved'],    
+                   
+                );
+                  $i++;
+   }
+                    
+                $form['ia_card'] = array(
+                    '#type' => 'tableselect',   
+                    //'#theme' => 'table',
+                    '#header' => $header,
+                    '#options' => $rows,
+                    '#multiple' => FALSE,
+                    '#empty' => t('No Data Found.'),
+                    '#prefix' => "<div id='my_printable1_div'>",
+                    '#suffix' => "</div>",
+                 );
+   
+   
+                    
+                $form['move'] = array(
+                           '#type' => 'submit',
+                           '#value' => t('Assign'),
+                           '#submit' => array('agency_dis_mapping_submit'),
+                           '#validate' => array('assign_value_validate'), 
+                );
+                
+                //Display the listing of the assigned district to the IA card authority
+                global $user;
+                $aa = user_load($user->uid);
+                $sta_val = $aa->field_state['und'][0]['value'];
+                
+                           $res_qry = db_select('activity.iacard_mapping','am');
+                           $res_qry->fields('am');
+                           $res_qry->condition('state_id',$sta_val);
+                           $res_result = $res_qry->execute();
+                           
+                    $res_rows = array();
+                    $i = 1;
+                    while($res_data = $res_result->fetchAssoc()){
+
+                                    $state_list = _get_location('state');
+                                    $district_list = _get_location('district',$sta_val);
+                                    $term = taxonomy_term_load($res_data['type_card_request']);
+                                    $cardname = $term->name;
+                                    
+
+                                    $State = $state_list[$res_data['state_id']];
+                                    $district = $district_list[$res_data['districts']];
+                                  // Fill the table rows
+                                    $res_rows[$res_data['id']] = array(
+                                    $i,
+                                    $State,      
+                                    $district,
+                                    $res_data['iacard_id'],
+                                 );
+                                  $i++;
+                   }
+                           
+                $head_top = array('S.N','State', 'District','iacard_id');
+                $form['iac_result_msg'] = array(
+                   '#type' => 'item',
+                   '#markup' => t('<strong> List of Assigned district to the IA Card </strong>'),  
+                 );
+                 
+                $form['ia_card_result'] = array(
+                    '#theme' => 'table',
+                    '#header' => $head_top,
+                    '#rows' => $res_rows,
+                    '#empty' => t('No Data Found.'),
+                    '#prefix' => "<div id='ia_card_result'>",
+                    '#suffix' => "</div>",
+                 );
+  
+  return $form;
+}
+
+
+
+function assign_value_validate($form, &$form_state){
+    
+    $state_val = $form_state['values']['state'];
+    $ia_card_val = $form_state['values']['ia_card'];
+  
+    
+}
+
+
+
+function agency_dis_mapping_submit($form, &$form_state){
+    
+    if($form_state['values']['state'] != '0'){
+                     $_SESSION['ag_dis_map_state_value'] =  $form_state['values']['state'];
+
+    }
+    if($form_state['values']['ag_des_district'] != '0'){
+                     $_SESSION['ag_dis_map_district_value'] =  $form_state['values']['ag_des_district'];
+
+    }
+    if($form_state['values']['agency'] != '0'){
+                     $_SESSION['ag_dis_map_ia_card'] =  $form_state['values']['ia_card'];
+
+    }
+    
+    //
+    
+    
+    $state_val = $form_state['values']['state'];
+    //$dis_val = implode(',', $form_state['values']['ag_des_district']);
+    //drupal_set_message('<pre>'.$state_val.'</pre>');
+    $ia_card_val = $form_state['values']['ia_card'];
+    //drupal_set_message('<pre>'.array_values($ia_card_val).'</pre>');
+    
+
+    if($state_val != ''){
+        foreach ($form_state['values']['ag_des_district'] as $ag_map){
+                
+                foreach ($ia_card_val as $ia_cval){
+                                $qry = db_select('activity.iacard_mapping','am')
+                                        ->fields('am',array('id'))
+                                        ->condition('am.state_id',$state_val)
+                                        ->condition('am.districts',$ag_map)
+                                        ->condition('am.iacard_id',$ia_cval)
+                                        ->execute();
+
+                                if($qry->rowCount() > 0){
+
+                                    form_set_error('',t('This IA Card already assigned to this District'));
+                                    $check_arr = form_set_error();
+                                            if(!empty($check_arr)) {
+                                                    return $check_arr;
+                                    }
+
+                                }else{
+
+
+                                $query = db_insert('activity.iacard_mapping')
+                                    ->fields(array(
+                                        'state_id' => $state_val,
+                                        'districts' => $ag_map,
+                                        'iacard_id' => $ia_cval
+                                    ))
+                                    ->execute();
+                                }   
+            
+                }
+        }
+        
+        if($query){
+            drupal_set_message('IA Card has been mapped to District, Successfully');
+        }
+    }           
+
+}

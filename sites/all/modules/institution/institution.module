@@ -1,0 +1,880 @@
+<?php
+
+function institution_entity_info() {
+  $basic_info['institute'] = array(
+    'label' => t('institute Entity'),
+    'controller class' => 'InstituteTaskController', 
+    'entity class' => 'InstituteTask',//new controller  
+    'base table' => 'Institution',
+    'revision table' => 'Institution_revision', 
+    'uri callback' => 'ins_uri',
+    'module' => 'institution',  
+    'fieldable' => FALSE,
+    'entity keys' => array(
+      'id' => 'ins_id',
+      //'revision' => 'vid',
+    ),
+    'static cache' => TRUE,
+    'bundles' => array(
+      'institute' => array(
+        'label' => 'Institute',
+        'admin' => array(
+          'path' => 'admin/structure/institute/manage',
+          'access arguments' => array('administer institute entities'),
+        ),
+      ),
+    ),
+    'view modes' => array(
+      'full' => array(
+        'label' => t('Full'),
+        'custom settings' =>  FALSE,
+      ),
+    )
+ 
+  );
+
+  return $basic_info;
+}
+
+
+
+function institution_menu() {
+
+  $items['admin/structure/institute/manage'] = array(
+    'title' => 'institute Entity Admin',
+    'description' => 'Manage Institute Entities Structure',
+    'page callback' => 'institute_admin_page',
+    'access arguments' => array('administer institute entities'),
+  );
+
+  $arg_pos = 1;
+  $task_uri = 'institute/%institute';
+  
+  $items['institute/%institute'] = array(
+    'title callback' => 'institute_page_title',
+    'title arguments' => array($arg_pos),
+    'page callback' => 'ins_view',
+    'page arguments' => array($arg_pos),
+    'access arguments' => array('view institute entities'),
+    'file' => 'institution.pages.inc',
+    'type'=> MENU_CALLBACK,  
+  );
+  
+  
+  $items[$task_uri.'/view'] = array(
+    'title' => 'View',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+  
+  
+  $items[$task_uri . '/edit'] = array(
+    'title' => 'Edit',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('institute_form', $arg_pos),
+    'access callback' => 'institute_access',
+    'access arguments' => array('edit', 'institution', $arg_pos),
+    'file' => 'institute.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
+  );
+  
+  $items[$task_uri . '/revision'] = array(
+    'title' => 'Revision',
+    'page callback' => 'institute_diff_overview',
+    'page arguments' => array($arg_pos),
+    'access callback' => 'institute_access',
+    'access arguments' => array('edit', 'institution', $arg_pos),
+    'file' => 'institute.features.inc',
+    'type' => MENU_LOCAL_TASK,
+    'context' => MENU_CONTEXT_PAGE | MENU_CONTEXT_INLINE,
+  );
+  
+   //compare institute form fields
+ 
+ $items['institution/%/revisions/view/%/%'] = array(
+    'title' => 'Compare revisions',
+    'page callback' => 'institute_diffs_show',
+    'page arguments' => array(1, 4, 5),
+    'type' => MENU_LOCAL_TASK,
+    //'access callback' => 'diff_node_revision_access',
+    //'access arguments' => array(1),
+    'access callback' => 'institute_access',
+    'access arguments' => array('edit', 'institution', $arg_pos),
+    'tab_parent' => 'institute/%institute/revision',
+    'file' => 'institute.features.inc',
+  );
+  
+  //revert institute
+  $items['institution/%/revisions/%/revert'] = array(
+    'title' => 'Revision revert Condition',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('institute_revert_form',$arg_pos,3),
+    'access callback' => 'institute_access',
+    'access arguments' => array('edit', 'institution', $arg_pos),
+    'file' => 'institute.features.inc',
+  );
+  //delete revision institute
+
+ 
+ $items['institution/%/revisions/%/delete'] = array(
+    'title' => 'Revision Delete Condition',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('institute_revision_delete_form',$arg_pos,3),
+    'access callback' => 'institute_access',
+    'access arguments' => array('edit', 'institution', $arg_pos),
+    'file' => 'institute.features.inc',
+ );
+ 
+  
+  $items[$task_uri . '/delete'] = array(
+    'title' => 'Delete Basic',
+    'title callback' => 'example_task_label',
+    'title arguments' => array($arg_pos),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('ins_delete_form', $arg_pos),
+    'access callback' => 'institute_access',
+    'access arguments' => array('edit', 'institution', $arg_pos),
+    'file' => 'institute.admin.inc',
+  );
+
+  // This defines a place for us to add basic entities
+  $items['institute/add'] = array(
+    'title' => 'Add a institute Entity',
+    'page callback' => 'institute_add',
+    'access arguments' => array('create institute entities'),
+  );
+
+  return $items;
+}
+
+
+function institute_page_title($institute) {
+  return 'Institute '.$institute->name;
+}
+
+
+function institute_access($op, $task, $account = NULL, $entity_type = NULL) {
+  global $user;
+
+  if (!isset($account)) {
+    $account = $user;
+  }
+  switch ($op) {
+    case 'create':
+      return user_access('administer institute entities', $account)
+          || user_access('create institute entities', $account);
+    case 'view':
+      return user_access('administer institute entities', $account)
+          || user_access('view institute entities', $account);
+    case 'edit':
+      return user_access('administer institute entities')
+          || user_access('edit any institute entities')
+          || (user_access('edit own institute entities') && ($task->uid == $account->uid));
+  }
+}
+
+
+function institution_permission() {
+    return array(
+    'administer institute entities' =>  array(
+      'title' => t('Administer institute entities'),
+      'restrict access' => TRUE,
+    ),
+    'view institute entities' => array(
+      'title' => t('View institute Entities'),
+    ),
+    'create institute entities' => array(
+      'title' => t('Create institute Entities'),
+    ),
+        
+    'edit any institute entities' => array(
+      'title' => t('Edit any institute entities'),
+      'description' => t('Allows users to edit any institute entities.'),
+      'restrict access' => TRUE,
+    ),
+    'edit own institute entities' => array(
+      'title' => t('Edit own institute entities'),
+      'description' => t('Allows users to edit own institute entities.'),
+      'restrict access' => TRUE,
+    ),    
+
+  );
+}
+
+
+function institute_admin_page() {
+  $output = 'Welcome to the administration page for your Institute Entities.<br/>';
+  $output .= '<a href="/institute/add">Add Institute</a>';
+  return $output;
+}
+
+
+function ins_uri($institute) {
+  return array(
+    'path' => 'institute/' . $institute->ins_id,
+  );
+}
+
+
+function institute_add() {
+    global $user;
+    
+  $ins = (object) array(
+      'ins_id' => '',
+      'vid' => '',
+      'ins_type' => '',
+      'ins_code' => '',
+      'name' => '',
+      'ins_local_lng' => '',
+      'address' => '', 
+      'district' => '',
+      'state' => '',
+      'pin' => '',
+      'head_of_inst' => '',
+      'phone' => '',
+      'email' => '',
+      'website' => '',
+      'total_manu' => '',
+      'paper_manu' => '',
+      'palm_leaf_manu' => '',
+      'other_material_manu' => '',
+      'illustrated_manu' => '',
+      'catalog_published' => '',
+      'catalogue_type' => '',
+      'manu_catalog_cat_wise_A' => '',
+      'manu_catalog_cat_wise_C' => '',
+      'manu_catalog_cat_wise_D' => '',
+      'manu_catalog_cat_wise_H' => '',
+      'manu_un_catalog_cat_wise' => '',
+      'catalogue_status' => '',
+      'detail_rare_manu' => '',
+      'chronological_ranf_manu' => '',
+      'state_preservation' => '',
+      'type_of_inst' => '',
+      'status_of_conversation' => '',
+      'brief_history' => '',
+      'date_information_collection' => '',
+      'mrc' => '',
+      'uid' => $user->uid,  
+      'created' => REQUEST_TIME,
+      'updated' => REQUEST_TIME,
+      'publish' => '',
+      'deleted' => '',
+    
+  );
+
+  return drupal_get_form('institute_add_form', $ins);
+}
+
+
+function institute_add_form($form, &$form_state, $ins) {
+    
+  $form['ins_type'] = array(
+    '#type' => 'select',
+    '#title' => t('Institute Type'),
+    '#options' => array(
+        'Select' => t('Select'),
+        'Individual' => t('Individual'),
+        'Organization' => t('Organization'),
+    ),
+    '#description' => t('Type of Repository/Institute'),  
+  );
+  $form['ins_code'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Institute Code'),
+    '#size' => 30,
+    '#description' => t('Institute Code Name'),  
+  );
+  
+  $form['name'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Name'),
+    '#required' => TRUE,
+    '#size' => 30,
+    '#description' => t('Name of the Repository/ Institute'),  
+  );
+  
+  $form['ins_local_lng'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Ins./Rep. in Local Lang'),
+    '#size' => 30,
+    '#description' => t('Number of Ins./Rep. available in local language'),  
+  );
+  
+  $form['address'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Address'),
+    '#required' => TRUE,  
+    '#size' => 30,
+    '#description' => t('Address of the Repository/Institute'),  
+  );
+  
+  $form['district'] = array(
+    '#type' => 'textfield',
+    '#title' => t('District'),
+    '#required' => TRUE,  
+    '#size' => 30,
+    '#description' => t('City of the Repository/Institute'),  
+  );
+
+  $form['state'] = array(
+    '#type' => 'select',
+    '#title' => t('State'),
+    '#required' => TRUE,  
+    '#options' => array(
+        'Utter Pradesh' => t('Utter Pradesh'),
+        'Delhi' => t('Delhi'),
+        'Punjab' => t('Punjab'),
+        'Haryana' => t('Haryana'),
+        'Shimla' => t('Shimla'),
+        'Rajasthan' => t('Rajasthan'),
+    ),
+    '#description' => t('State of the Repository/Institute'),  
+  );
+    
+   $form['pin'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Pin'),
+    '#required' => TRUE,  
+    '#size' => 30,
+    '#description' => t('Pin code of the Repository/Institute'),  
+  );
+   
+   $form['head_of_inst'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Head of the Institution'),
+    '#size' => 30,
+    '#description' => t('Name of the Institution/Repository Head (Secretary/Director/Librarian)'),  
+  );
+   
+   $form['phone'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Phone No'),
+    '#size' => 30,
+    '#description' => t('Phone no of the Institution/Repository'),  
+  );
+   
+   $form['email'] = array(
+    '#type' => 'textfield',
+    '#title' => t('E-mail'),   
+    '#required' => TRUE, 
+    '#size' => 30,   
+    '#element_validate' => array('institute_email_element_validate'),   
+    '#description' => t('E-mail of the Institution/Repository'),   
+  );
+   
+   $form['website'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Website'),
+    '#size' => 30,
+    '#description' => t('Website of the Institution/Repository'),  
+  );
+   
+   $form['total_manu'] = array(
+    '#type' => 'textfield',
+    '#title' => t('No of Total Manuscripts'),
+    '#size' => 10,
+    '#required' => TRUE,  
+    '#description' => t('Total no of Manuscripts available'),  
+  );
+   
+   $form['paper_manu'] = array(
+    '#type' => 'textfield',
+    '#title' => t('No of Paper Manuscripts'),
+    '#size' => 10,
+    '#description' => t('Total no of Paper Manuscripts available'),  
+  );
+   
+   $form['palm_leaf_manu'] = array(
+    '#type' => 'textfield',
+    '#title' => t('No of Palm Leaf Manuscripts'),
+    '#size' => 10,
+    '#description' => t('No of Manuscripts available in Leaf material'),  
+  );
+   
+   $form['other_material_manu'] = array(
+    '#type' => 'textfield',
+    '#title' => t('No of Mss. In Other Material'),
+    '#size' => 10,
+    '#description' => t('No of Manuscripts available in other Materials'),  
+  );
+   $form['illustrated_manu'] = array(
+    '#type' => 'textfield',
+    '#title' => t('No of Illustrated Manuscripts'),
+    '#size' => 10,
+    '#description' => t('No of Illustrated Manuscripts available'),  
+  );
+   $form['catalog_published'] = array(
+    '#type' => 'textfield',
+    '#title' => t('No of Catalogues Published'),
+    '#size' => 10,
+    '#description' => t('No of Catalogues Published by Institute/Repository'),  
+  );
+  $form['catalogue_type'] = array(
+    '#type' => 'select',
+    '#title' => t('Type of Catalogues'),
+    '#required' => TRUE,  
+    '#options' => array(
+        'N.A.' => t('N.A.'),
+        'Alphabatical' => t('Alphabatical'),
+        'Card Index' => t('Card Index'),
+       ),
+     '#multiple' => TRUE, 
+    '#description' => t('Type of the Catalogue'),  
+  );
+  
+  $form['group1'] = array(
+  '#type' => 'fieldset',    
+  //'#tree' => TRUE,
+  '#collapsible' => FALSE,
+  '#collapsed' => FALSE,   
+  '#title' => t('No of Manuscripts Catalogued- Category wise'),    
+  );
+  
+  $form['group1']['manu_catalog_cat_wise_A'] = array(
+    '#type' => 'textfield',
+    '#title' => t('A'),
+    '#size' => 5,
+    //'#description' => t('No of Catalogues Published by Institute/Repository'),  
+  );
+  
+  $form['group1']['manu_catalog_cat_wise_C'] = array(
+    '#type' => 'textfield',
+    '#title' => t('C'),    
+    '#size' => 5,
+  );
+  
+  $form['group1']['manu_catalog_cat_wise_D'] = array(
+    '#type' => 'textfield',
+    '#title' => t('D'),    
+    '#size' => 5,
+  );
+  $form['group1']['manu_catalog_cat_wise_H'] = array(
+    '#type' => 'textfield',
+    '#title' => t('H'),    
+    '#size' => 5,
+  );
+  
+  $form['catalogue_status'] = array(
+    '#type' => 'select',
+    '#title' => t('Status of Catalogue.'),
+    '#options' => array(
+        'Select' => t('Select'),
+        'Computerization' => t('Computerization'),
+        'Digitization' => t('Digitization'),
+  ),
+    '#description' => t('Status of Catalogue'),  
+  );
+  
+  $form['detail_rare_manu'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Detail of Rare Manuscripts'),
+    '#size' => 10,
+    '#description' => t('Total no of Rare Manuscript available.'),  
+  );
+  
+  $form['chronological_ranf_manu'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Chronological Rang of the Manuscript.'),
+    '#size' => 10,
+    '#description' => t('Chronological range available for the Manuscripts'),  
+  );
+  
+  $form['state_preservation'] = array(
+    '#type' => 'select',
+    '#title' => t('Status of Catalogue.'),
+    '#options' => array(
+        'Select' => t('Select'),
+        'Bad' => t('Bad'),
+        'Good' => t('Good'),
+  ),
+    '#description' => t('State of the Manuscript Preservation'),  
+  );
+  
+   $form['type_of_inst'] = array(
+    '#type' => 'select',
+    '#title' => t('Status of Catalogue'),
+    '#options' => array(
+        'Select' => t('Select'),
+        'Autonomous' => t('Autonomous'),
+        'Manual' => t('Manual'),
+  ),
+    '#description' => t('Type of the Institution'),  
+  );
+   
+ $form['status_of_conversation'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Status of Conversation'),
+    '#size' => 30,
+    '#description' => t('Showing the Status of the conversation'),  
+  );
+ 
+ $form['brief_history'] = array(
+    '#type' => 'textarea',
+    '#title' => t('Brief History'),
+    '#size' => 8,
+    '#description' => t('If Brief history available about the Repository/Institute'),  
+  );
+ 
+ $form['date_information_collection'] = array(
+    '#type' => 'date_popup',
+    '#title' => t('Date of Collection of  Information'),
+    '#size' => 8,
+    '#description' => t('Information collection date about the Repository/Institute'),  
+  );
+ 
+  $form['mrc'] = array(
+    '#type' => 'select',
+    '#title' => t('MRC'),
+    '#options' => array(
+        'Select' => t('Select'),
+        'MRCcenter1' => t('MRCcenter1'),
+        'MRCcenter2' => t('MRCcenter2'),
+  ),
+    '#description' => t('Selection of MRC under which Repository/Institute will be registered.'),  
+  );
+  
+  $checkbox = array('1' => 'Published');
+  
+  $form['publish'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Published'),
+    '#default_value' => TRUE,
+    //'#options' => $checkbox,  
+  );
+  
+  $form['deleted'] = array(
+      '#type' => 'hidden',
+      '#value' => 0,
+  );
+  
+  //field_attach_form('basic', $basic, $form, $form_state);
+
+  $form['actions']['cancel'] = array(
+    '#markup' => l(t('Cancel'), 'institute-list'),
+    '#weight' => 101,
+      );
+  
+  $form['actions']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save'),
+    '#weight' => 100,
+  );
+  
+  
+  return $form;
+}
+
+
+/**
+ * Implements hook_entity_property_info_alter().
+ */
+function institution_entity_property_info_alter(&$info) {
+    
+  $properties = &$info['institute']['properties'];
+  $properties['created'] = array(
+    'label' => t("Date created"),
+    'type' => 'date',
+    'description' => t("The date the node was posted."),
+    'setter callback' => 'entity_property_verbatim_set',
+    'setter permission' => 'administer nodes',
+    'schema field' => 'created',
+  );
+  $properties['updated'] = array(
+    'label' => t("Date updated"),
+    'type' => 'date',
+    'schema field' => 'updated',
+    'description' => t("The date the node was most recently updated."),
+  );
+  $properties['uid'] = array(
+    'label' => t("Author"),
+    'type' => 'user',
+    'description' => t("The author of the task."),
+    'setter callback' => 'entity_property_verbatim_set',
+    'setter permission' => 'administer example_task entities',
+    'required' => TRUE,
+    'schema field' => 'uid',
+  );
+}
+
+function institute_email_element_validate($element, &$form_state, $form){
+    
+    if (!valid_email_address($element['#value'])) {
+     form_error($element, t('Please enter a valid email address.'));
+   }
+    
+}
+
+
+
+function institution_form_alter(&$form, &$form_state, $form_id) {
+  
+    if ($form_id == 'institute_add_form') {
+        $form['#theme'] = array('ins_add_form');
+      }elseif ($form_id == 'institute_form') {
+         $form['#theme'] = array('ins_add_form');
+      }
+}
+
+function institution_theme($existing, $type, $theme, $path){
+  return array(
+    'ins_add_form' => array(
+      'render element' => 'form',
+      'template' => 'institute--form',
+      'path' => drupal_get_path('module','institution'),
+    ),
+      
+    'institute' => array(
+      'render element' => 'form',//added now  
+      'variables' => array('element' => null),
+      'template' => 'institute_template',
+      'path' => drupal_get_path('module','institution'), //added now 
+    ),
+      
+    'diff_entity_revisions' => array(
+      'render element' => 'form',
+      'file' => 'institute.features.inc',
+    ),  
+      
+  );
+}
+
+
+function institute_add_form_validate($form, &$form_state) {
+  $basic_submission = (object) $form_state['values'];
+  field_attach_form_validate('institute', $basic_submission, $form, $form_state);
+}
+
+
+
+
+/**
+ * Form callback: submits basic_add_form information
+ */
+
+function institute_add_form_submit($form, &$form_state) {
+  $basic_submission = (object) $form_state['values'];
+  
+  field_attach_submit('institute', $basic_submission, $form, $form_state);
+  $basic = institute_save($basic_submission);
+  // now insert value on revision table and update the institute table
+  revision_data_save($basic_submission);
+  
+  
+  $task_uri = entity_uri('institute', $basic_submission);
+  $form_state['redirect'] = $task_uri['path'];
+  
+}
+
+function revision_data_save($data){
+    global $user;
+    //insert data in Institution_revision Table
+    $table_name = 'Institution_revision';
+    $data_record = array(
+        'ins_id' => $data->ins_id,
+        'ins_type' => $data->ins_type,
+        'ins_code' => $data->ins_code,
+        'name' => $data->name,
+        'ins_local_lng' => $data->ins_local_lng,
+        'address' => $data->address, 
+        'district' => $data->district,
+        'state' => $data->state,
+        'pin' => $data->pin,
+        'head_of_inst' => $data->head_of_inst,
+        'phone' => $data->phone,
+        'email' => $data->email,
+        'website' => $data->website,
+        'total_manu' => $data->total_manu,
+        'paper_manu' => $data->paper_manu,
+        'palm_leaf_manu' => $data->palm_leaf_manu,
+        'other_material_manu' => $data->other_material_manu,
+        'illustrated_manu' => $data->illustrated_manu,
+        'catalog_published' => $data->catalog_published,
+        'catalogue_type' => $data->catalogue_type,
+        'manu_catalog_cat_wise_A' => $data->manu_catalog_cat_wise_A,
+        'manu_catalog_cat_wise_C' => $data->manu_catalog_cat_wise_C,
+        'manu_catalog_cat_wise_D' => $data->manu_catalog_cat_wise_D,
+        'manu_catalog_cat_wise_H' => $data->manu_catalog_cat_wise_H,
+        'manu_un_catalog_cat_wise' => $data->manu_un_catalog_cat_wise,
+        'catalogue_status' => $data->catalogue_status,
+        'detail_rare_manu' => $data->detail_rare_manu,
+        'chronological_ranf_manu' => $data->chronological_ranf_manu,
+        'state_preservation' => $data->state_preservation,
+        'type_of_inst' => $data->type_of_inst,
+        'status_of_conversation' => $data->status_of_conversation,
+        'brief_history' => $data->brief_history,
+        'date_information_collection' => $data->date_information_collection,
+        'mrc' => $data->ins_code,
+        'uid' => $user->uid,  
+        'created' => REQUEST_TIME,
+        'updated' => REQUEST_TIME,
+        'publish' => $data->publish,
+        'deleted' => $data->deleted,
+        
+    );
+    
+    drupal_write_record($table_name, $data_record);
+    
+    $vid_update = db_update('Institution')
+                  ->fields(array(
+                        'vid' => $data_record['vid'],
+                        'uid' => $user->uid,
+                        'created' => REQUEST_TIME,
+                        'updated' => REQUEST_TIME,
+                   ))
+                  ->condition('ins_id', $data->ins_id)
+                  ->execute();
+    
+}
+
+function institute_save(&$basic) {
+  return entity_get_controller('institute')->save($basic);
+}
+
+function institute_load($ins_id = NULL, $reset = FALSE) {
+  $basic_ids = (isset($ins_id) ? array($ins_id) : array());
+  $institute = ins_load_multiple($basic_ids, $reset);
+  return $institute ? reset($institute) : FALSE;
+}
+
+
+function institute_revision_load($vid){
+    
+    $result = db_query("SELECT * FROM {Institution_revision} WHERE vid = :vid", array(':vid' => $vid))->fetchObject();
+    return $result;
+}
+
+
+/**
+ * Loads nultiple basic entities based on certain conditions
+ */
+
+function ins_load_multiple($ins_id = array(), $conditions = array(), $reset = FALSE) {
+  return entity_load('institute', $ins_id, $conditions, $reset);
+}
+
+
+
+function ins_entity_delete($task) {
+  entity_delete('institute', entity_id('institute' ,$task));
+}
+
+function ins_soft_delete($task){
+  
+   $delete_update = db_update('Institution')
+                  ->fields(array(
+                        'deleted' => 1,
+                   ))
+                  ->condition('ins_id', $task->ins_id)
+                  ->execute();  
+
+    return $delete_update;
+}
+
+
+/**
+ * Helper function to load any CSS or JScript files required by a page or form.
+ */
+function ins_build_attachments($jscript = FALSE) {
+  $attachments = array();
+  $theme = variable_get('diff_theme', 'default');
+  if ($theme) {
+    $attachments['css'] = array(
+      drupal_get_path('module', 'diff') . "/css/diff.{$theme}.css",
+    );
+  }
+  $type = variable_get('diff_radio_behavior', 'simple');
+  if ($jscript && $type) {
+    $attachments['js'] = array(
+      drupal_get_path('module', 'diff') . "/js/diff.js",
+      array(
+        'data' => array('diffRevisionRadios' => $type),
+        'type' => 'setting',
+      ),
+    );
+  }
+  return $attachments;
+}
+
+function institution_entity_info_alter(&$entity_info) {
+  foreach (array_keys($entity_info) as $entity_type) {
+    if (!empty($entity_info[$entity_type]['view modes'])) {
+      $entity_info[$entity_type]['view modes'] += array(
+        'diff_standard' => array(
+          'label' => t('Revision comparison'),
+          'custom settings' => FALSE,
+        ),
+      );
+    }
+  }
+}
+
+
+
+
+
+
+
+class InstituteTaskController extends EntityAPIController {
+
+  public function create(array $values = array()) {
+    global $user;
+    
+    $values += array(
+      'ins_type' => '',
+      'ins_code' => '',
+      'name' => '',
+      'ins_local_lng' => '',
+      'address' => '', 
+      'district' => '',
+      'state' => '',
+      'pin' => '',
+      'head_of_inst' => '',
+      'phone' => '',
+      'email' => '',
+      'website' => '',
+      'total_manu' => '',
+      'paper_manu' => '',
+      'palm_leaf_manu' => '',
+      'other_material_manu' => '',
+      'illustrated_manu' => '',
+      'catalog_published' => '',
+      'catalogue_type' => '',
+      'manu_catalog_cat_wise_A' => '',
+      'manu_catalog_cat_wise_C' => '',
+      'manu_catalog_cat_wise_D' => '',
+      'manu_catalog_cat_wise_H' => '',
+      'manu_un_catalog_cat_wise' => '',
+      'catalogue_status' => '',
+      'detail_rare_manu' => '',
+      'chronological_ranf_manu' => '',
+      'state_preservation' => '',
+      'type_of_inst' => '',
+      'status_of_conversation' => '',
+      'brief_history' => '',
+      'date_information_collection' => '',
+      'mrc' => '',
+      'uid' => $user->uid,  
+      'created' => REQUEST_TIME,
+      'updated' => REQUEST_TIME,
+      'publish' => '',
+      'deleted' => '',  
+        
+    );
+    return parent::create($values);
+  }
+
+}
+
+
+class InstituteTask extends Entity {
+  protected function defaultLabel() {
+    return $this->title;
+  }
+
+  protected function defaultUri() {
+    return array('path' => 'institute/' . $this->identifier());
+  }
+}
+

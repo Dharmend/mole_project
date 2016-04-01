@@ -1,0 +1,850 @@
+<?php
+
+/**
+ * Implements hook_permission().
+ */
+function agency_permission() {
+  return array(
+    'access Agency content' => array(
+      'title' => t('Access content for Agency module'),
+    ),
+    'access Agency list content' => array(
+      'title' => t('Access agency list content for Agency module'),
+    ),
+    'access own Agency detail' => array(
+      'title' => t('Access own Agency detail Agency module'),
+    ),
+  );
+}
+
+function agency_cronapi($op, $job = NULL) {
+
+  $items['agency_record_cron'] = array(
+    'description' => 'agency record cron',
+    'rule' => '*/15 * * * *',   // Every 2 hours
+    
+  );
+
+  return $items;
+}
+
+function agency_menu_alter(&$items){
+   $items['user/%node/subuser']['type'] = MENU_CALLBACK;
+}
+
+function agency_menu() {
+  $items = array();
+
+  $items['agency/add'] = array(
+    'title' => 'Assign Agency to download village data',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('assign_agency_form'),
+    'access arguments' => array('access Agency content'),
+    'type' => MENU_NORMAL_ITEM,
+  // 'access callback' => TRUE,
+
+   );
+  $items['agency/list'] = array(
+    'title' => 'Assigned village To Registered Agency',
+    'page callback' => 'agency_list',
+    //'page arguments' => array('assign_agency_form'),
+    'access arguments' => array('access Agency list content'),
+    'type' => MENU_NORMAL_ITEM,
+   //'access callback' => TRUE,
+
+   );
+  $items['agency/detail'] = array(
+    'title' => 'Agency User Detail',
+    'page callback' => 'agency_detail',
+    //'page arguments' => array('assign_agency_form'),
+    'access arguments' => array('access own Agency detail'),
+    'type' => MENU_NORMAL_ITEM,
+   //'access callback' => TRUE,
+
+   );
+   $items['agency/edit/%'] = array( 
+        'title' => 'Agency Edit',
+        'description' => 'Edit Agency',
+        'page callback' => 'drupal_get_form', 
+        'page arguments' => array('assign_agency_form'), 
+        //'access callback' => TRUE
+            'access arguments' => array('access Agency list content'),
+            'type' => MENU_NORMAL_ITEM,
+
+      );
+    $items['agency/delete/%'] = array( 
+        'title' => 'Agency Delete',
+        'description' => 'For deleting Agency',
+        'page callback' => 'drupal_get_form', 
+        'page arguments' => array('agency_delete'), 
+        //'access callback' => TRUE
+            'access arguments' => array('access Agency list content'),
+            'type' => MENU_NORMAL_ITEM,
+
+      );
+
+      
+
+  return $items;
+}
+
+
+
+function assign_agency_form($form, &$form_state){
+  global $user;
+
+  $role = end($user->roles);
+  $user_info = user_load($user->uid);
+ 
+  $dow_rural_urban = $_SESSION['dow_rural_urban'];
+  
+  $dow_state = $_SESSION['dow_state_value'];
+  $dow_district = $_SESSION['dow_district_value'];
+  $dow_tehsil = $_SESSION['dow_tehsil_value'];
+  $dow_village = $_SESSION['dow_village_value'];
+  
+  $house_id = $dow_state.''.$dow_district.''.$dow_tehsil.''.$dow_village;
+    $form['tab_title'] = array(
+                        '#markup' => '<h4 style="background: rgb(235, 235, 235) none repeat scroll 0% 0%; ">Select multiple village &  assign Agency to download village data.</h4>',
+        );
+     $form['vill'] = array(
+                        '#markup' => '<br><h6 style="color: red;">At Village/Town (Use Ctrl Key to select multiple village).</h6>',
+        );
+ $ru = $form_state['values']['rural_urban_agency'];
+
+   
+    $form['rural_urban_agency'] = array(
+      '#type' => 'radios',
+      '#title' => t('Select Area'),
+       '#options' => array(
+         'R' => t('Rural'),
+         'U' => t('Urban'),
+        ),
+       '#required' => TRUE,
+      '#default_value' => $session_rural, 
+      '#prefix' => '<div id="wrapper_area_choice">',
+      '#suffix' => '</div>',
+       '#ajax' => array(
+            'callback' => 'ajax_callback_rural_urban_agency',
+            'wrapper' => 'wrapper_rurul_urban_agency',
+            
+        ),
+
+      );
+if(($role == 'MOLE')||($user->uid == 1)){
+            $state_list = _get_location('state','','','','',$ru);
+              $state_selected = isset($form_state['values']['state']) ? $form_state['values']['state'] : key($state_list);
+
+          //  $state_list[$state_value] = $state_list_data[$state_value];
+          }
+   
+          if(($role == 'District') || ($role == 'State') || ($role == 'Tehsil')){
+            $state_value = $user_info->field_state['und'][0]['value'];
+            $state_list_data = _get_location('state','','','','',$ru);
+            $state_list[$state_value] = $state_list_data[$state_value];
+            $state_selected = isset($form_state['values']['state']) ? $form_state['values']['state'] : $state_value;
+
+          }
+      $edit_id=arg(2);
+      $query = db_select('agency_record', 'ag_r');
+              $query->fields('ag_r');
+              $query->condition('ag_r.id',$edit_id,'=');
+  $result = $query->execute()->fetchAssoc();
+
+  
+    
+    
+    $form['state'] = array(
+        '#title' => 'State',
+        '#type' => 'select',
+        '#options' => $state_list,
+        '#default_value' => $state_selected,
+        '#required' => TRUE,
+        '#ajax' => array(
+            'callback' => 'ajax_callback_state',
+            'wrapper' => 'wrapper_state',
+            
+        ),
+        
+    );
+
+
+if(($role == 'MOLE')||($user->uid == 1) || ($role == 'State')){
+          $district_list = _get_location('district',$state_selected,'','','',$ru);
+         $district_selected = isset($form_state['values']['district']) ? $form_state['values']['district'] : $state_selected;
+
+          //  $state_list[$state_value] = $state_list_data[$state_value];
+          }
+
+     if(($role == 'District') || ($role == 'Tehsil') ){
+          $district_value = $user_info->field_district['und'][0]['value'];
+          $district_list_data = _get_location('district',$state_selected,'','','',$ru);
+          $district_list[$district_value] = $district_list_data[$district_value];
+           $district_selected = isset($form_state['values']['district']) ? $form_state['values']['district'] : key($district_list);
+
+        }
+
+    
+  //  $district_list = _get_location('district',$state_selected);
+    $form['district'] = array(
+        '#title' => 'District',
+        '#type' => 'select',
+        '#options' => $district_list,
+        '#default_value' => $district_selected,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_state">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_district',
+            'wrapper' => 'wrapper_tehsil',
+            
+        ),
+   );
+
+  
+    if( ($role == 'District')|| ($role == 'MOLE')|| ($user->uid == 1) || ($role == 'State')){
+    $tehsil_list = _get_location('tehsil',$state_selected,$district_selected,'','',$ru);
+        $tehsil_value = isset($_SESSION['dow_tehsil_value']) ? $_SESSION['dow_tehsil_value'] : $result['tehsil'];
+
+    }
+    if( ($role == 'Tehsil') ){
+       $tehsil_value = $user_info->field_tehsil['und'][0]['value'];
+          $tahsil_list_data = _get_location('tehsil',$state_selected,$district_selected,'','',$ru);
+          $tehsil_list[$tehsil_value] = $tahsil_list_data[$tehsil_value];
+
+    }
+    
+    
+    $tehsil_selected = isset($form_state['values']['tehsil']) ? $form_state['values']['tehsil'] : $tehsil_value; 
+    $form['tehsil'] = array(
+        '#title' => 'Tehsil',
+        '#type' => 'select',
+        '#options' => $tehsil_list,
+        '#default_value' => $tehsil_selected,
+         '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_tehsil">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_tehsil',
+            'wrapper' => 'wrapper_village',
+            
+        )
+    );
+   $village_edit = explode(',', $result['village']);
+
+    $village_list = _get_location('village',$state_selected,$district_selected,$tehsil_selected,'',$ru);
+    //print_r($village_list);
+    $vill_session_value = isset($_SESSION['dow_village_value']) ? $_SESSION['dow_village_value'] : key($village_list);
+    $village_selected = isset($form_state['values']['village']) ? $form_state['values']['village'] : $vill_session_value;
+    $form['village'] = array(
+        '#title' => 'Village/Town',
+        '#type' => 'select',
+        '#options' => $village_list,
+        '#default_value' => array_values($village_edit),
+        '#required' => TRUE,
+        '#multiple' => TRUE,
+         '#size'=> 10,
+        '#prefix' => '<div id="wrapper_village">',
+        '#suffix' => '</div>',
+//        '#ajax' => array(
+//            'callback' => 'ajax_callback_state',
+//            'wrapper' = > 'wrapper_state',
+//            
+//        )
+    );
+
+        $nids = db_select('node', 'n')
+        ->fields('n', array('nid'))
+        ->condition('type', 'agency', '=')
+        ->condition('status', 1, '=')
+
+        ->execute()
+        ->fetchCol();
+        $nodes = node_load_multiple($nids);
+       // print_r($result['agency']);
+        
+        $agency = array();
+       //  $agency[0] = '----Select Agency---';
+        foreach ($nodes as $key => $node_data) {
+            $agency[$key] = $node_data->title;
+            }   
+  
+      $form['agency'] = array(
+        '#title' => 'Choose Agency',
+        '#type' => 'select',
+        '#options' => $agency,
+        '#default_value' => $result['agency'],
+        '#required' => TRUE,
+       
+    );
+      $form['dowload_date_from'] = array(
+    '#type' => 'date_popup',
+    '#default_value' => '',
+      '#date_format' => 'd/m/Y',  
+    //'#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Download From Date'),  
+    '#size' => 30,
+      '#required' => TRUE,
+      '#date_year_range' => '-1:+3',
+    );
+      $form['dowload_date_to'] = array(
+    '#type' => 'date_popup',
+    '#default_value' => $data['correction_dob'],
+      '#date_format' => 'd/m/Y',  
+    //'#attributes' => array('readonly' => 'readonly'),
+    '#title' => t('Download To Date'),  
+    '#size' => 30,
+            '#required' => TRUE,
+      '#date_year_range' => '-1:+3',
+    );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => 'Submit',
+  );
+
+  //$form['#validate'][] = 'validateForm';
+     $form['agency_title'] = array(
+                        '#markup' => '<br><br><br><br><br><br><br><h4 style="background: rgb(235, 235, 235) none repeat scroll 0% 0%; ">List of Assigned Villages to Registration Agency.</h4><br>',
+        );
+
+  global $user;
+  $role = end($user->roles);
+  $query = db_select('agency_record', 'ag_r');
+     $query->groupBy('ag_r.state');
+     $query->groupBy('ag_r.district');
+     $query->groupBy('ag_r.tehsil');
+     $query->groupBy('ag_r.agency');
+     $query->groupBy('ag_r.dowload_date_from');
+     $query->groupBy('ag_r.dowload_date_to');
+          $query->groupBy('ag_r.active'); 
+
+   $query->fields('ag_r', array('state','district','tehsil','agency','dowload_date_from','dowload_date_to','active'));
+       // $query->fields('ag_r');
+
+  // $query ->orderBy('created', 'DESC');
+    $result = $query->execute();
+      if( ($role == 'MOLE')){
+        $header = array('S.No','Agency name', 'State', 'District', 'Tehsil' ,'Villages','Download Period');
+}else{
+$header = array('S.No','Agency name', 'State', 'District', 'Tehsil' ,'Villages','Download Period');
+
+}
+$row =array();
+                      $i = 1;
+       while($data = $result->fetchAssoc()){
+        
+       $node =  node_load($data['agency']);
+        $query_village = db_select('agency_record', 'v');
+            $query_village->fields('v',array('village'));
+            $query_village ->condition('agency',$data['agency'],'=');
+           $query_village ->condition('dowload_date_from',$data['dowload_date_from'],'=');
+            $query_village ->condition('dowload_date_to',$data['dowload_date_to'],'=');
+            $query = $query_village->extend('TableSort')->extend('PagerDefault')->limit(20);
+
+
+                $result_viilage = $query_village->execute();
+                $combine_vill = array();
+       while($vill_data = $result_viilage->fetchAssoc()){
+        $combine_vill[] = $vill_data['village'];
+}
+    $villvalues = implode(',',$combine_vill);
+    
+     $vill = explode(',', $villvalues);
+      $village_list = _get_location('village',$data['state'],$data['district'],$data['tehsil'],'',$ru);
+
+     if($node->status==1){
+                  if($data['active']==1){
+
+
+       $agency_name = $node->title;
+       //Empaneled Date
+     //  $empaned_date_f = format_date(strtotime($node->field_tenure_for_empanelment_fro['und'][0]['value']), 'custom','d-m-Y');
+    //   $empaned_date_l = format_date(strtotime($node->field_tenure_for_empanelment_fro['und'][0]['value2']), 'custom','d-m-Y');
+       $empaned_date = date_format(date_create($data['dowload_date_from']),"d/m/Y").' <b>To</b> '.date_format(date_create($data['dowload_date_to']),"d/m/Y");
+      
+       $state_list = _get_location('state','','','','',$ru);
+        $state = $state_list[$data['state']];
+        $district_list = _get_location('district',$data['state'],'','','',$ru);
+
+        $district = $district_list[$data['district']];
+
+        $tahsil_list = _get_location('tehsil',$data['state'],$data['district'],'','',$ru);       
+        $tehsil = $tahsil_list[$data['tehsil']];
+     //    $vill = explode(',', $data['village']);
+     // $village_list = _get_location('village',$data['state'],$data['district'],$data['tehsil']);
+
+ $k=1;
+$village = array();
+
+
+ foreach ($vill as $key => $value) {
+ $village[] = $village_list[$value];
+  }
+  
+  $villdata = implode(',', $village);
+                  if($data['active']==1){
+
+
+        $rows[] = array(
+                    $i,
+                    $agency_name,    
+                    $state,      
+                    $district,
+                    $tehsil,
+                    $villdata,
+                    $empaned_date,
+                );
+            }else{
+
+              if(($role == 'District') || ($role == 'State') || ($role == 'Tehsil')){
+            $state_value_agency = $user_info->field_state['und'][0]['value'];
+            $state_list_agency = _get_location('state','','','','',$ru);
+            $state_lists[$state_value_agency] = $state_list_agency[$state_value_agency];
+
+          }
+
+          if($state_lists[$state_value_agency]==$state){
+
+             $rows[] = array(
+                    $i,
+                    $agency_name,    
+                    $state,      
+                    $district,
+                    $tehsil,
+                    $villdata,
+                    $empaned_date, 
+                     // "<a href='edit/".$data['id']."'>Edit</a> | <a href='delete/".$data['id']."' onclick = 'return confirm(\"Are you sure you want to delete this item?\");'>Delete</a>"                     
+                );
+            
+          }
+          }
+                                      $i++;
+
+        }
+
+             } 
+           
+       }
+        $form['table'] = array(
+                            '#theme' => 'table',
+                            '#header' => $header,
+                            '#rows' => $rows,
+                            '#empty' => t('Table has no row!'),
+                            // '#prefix' => "<div id='my_printable_div'>".l('Assign Village To Agency','agency/add'),
+                            // '#suffix' => "</div>",
+                          );
+
+            $form['pager'] = array('#markup' => theme('pager'));
+
+  return $form;
+}
+
+function assign_agency_form_submit($form, &$form_state) {
+
+   $ru = $form_state['values']['rural_urban_agency']; 
+  $state = $form_state['values']['state'];
+  $district = $form_state['values']['district'];
+  $tehsil = $form_state['values']['tehsil'];
+   $village = implode(',', $form_state['values']['village']);
+  $agency = $form_state['values']['agency'];
+   $download_date_from = $form_state['values']['dowload_date_from'];
+   $download_date_to = $form_state['values']['dowload_date_to'];
+
+   $node_val = node_load($agency);
+  $username = $node_val->field_username['und'][0]['value'];
+  $userquery = db_select('users', 'u');
+    $userquery->fields('u', array('uid'));
+    $userquery->condition('name', $username);
+  $userresult = $userquery->execute()->fetchAssoc();
+  $uid = $userresult['uid'];
+            
+ $query = db_select('agency_record', 'ag_r');
+ $query->fields('ag_r');
+ $query->condition('state',$state,'=');
+ $query->condition('district',$district,'=');
+ $query->condition('tehsil',$tehsil,'=');
+  $query->condition('rural_urban',$ru,'=');
+
+  $query->condition('active','1','=');
+  $result = $query->execute();
+ 
+
+      $agency_id = array();
+      $village_id = array();
+       while($data = $result->fetchAssoc()){
+              $agency_id[] = $data['agency'];
+             // $village_id[]['dowload_date_from']    = $data['dowload_date_from'];
+
+              $village_id[] = explode(',', $data['village'].','.$data['dowload_date_from'].','.$data['dowload_date_to']);
+
+       }
+
+       $village_array = (explode(',', $village));
+
+        $data_dwnd_to = array();
+foreach ($village_array as $key => $village_array_value) {
+      foreach($village_id as $key => $value){
+                $vill_match = in_array($village_array_value, $value);
+                if($vill_match){
+                   $data_dwnd_to[] = strtotime(end($value));
+                   $data_dwnd_frm = prev($value);
+            }
+        }
+}
+  $date_to_dwnld = max($data_dwnd_to);
+
+      $assign_village = array();
+foreach ($village_id as $village_data) {
+    $assign_village = array_merge($assign_village, $village_data);
+}
+   $vill = explode(',', $village);
+          print_r($vill);
+
+
+  $agency_value = in_array($agency , $agency_id);
+   $match_vill_data = array_intersect($assign_village,$vill);
+   
+    
+   $created = time();
+   
+$options = array('state'=>$state,
+                     'district'=>$district,
+                     'tehsil'=>$tehsil,
+                     'village'=>$village,
+                     'agency'=>$agency,
+                     'dowload_date_from' => $download_date_from,
+                     'dowload_date_to' => $download_date_to,
+                     'created' => $created,
+                     'user_id' => $uid,
+                     'active' => 1,
+                     'rural_urban' => $ru,
+
+                     );
+      $edit_id=arg(2);
+
+    if(strtotime($download_date_to) < strtotime($download_date_from)){
+        form_set_error('',t('Please Select Appropriate date  Download to date  must be greater then Download from Date'));
+    }
+    else{
+
+ if(empty($edit_id)){  
+
+if (!empty($match_vill_data)){
+
+  if(strtotime($download_date_from) > $date_to_dwnld){
+
+      $query=db_insert('agency_record')
+                    ->fields($options)
+                    ->execute();
+            if($query){
+              drupal_set_message('Village wise agency has been mapped successfully');
+            }
+      
+    }
+    else{
+            $village_list_data = _get_location('village', $state ,$district,$tehsil,'',$ru);
+            $villages = array();
+            foreach ($match_vill_data as $key => $value) {
+         $villages[] = $village_list_data[$value];
+          }
+         $villvalue = implode(',', $villages);
+      form_set_error('', t('Village allready register for agency  villages are:  </b>'.$villvalue.'</b>'));
+      
+         // form_set_error('Agency and village both are register');
+       }
+    }
+
+else{  
+   $query=db_insert('agency_record')
+                    ->fields($options)
+                    ->execute();
+            if($query){
+              drupal_set_message('Village wise agency has been mapped successfully');
+            }
+
+
+
+}
+
+} else {
+          $query=db_update('agency_record')
+                  ->condition('id',$edit_id,'=')
+                  ->fields($options)
+                  ->execute();
+          drupal_set_message("Your Agency has been edited.");
+          drupal_goto("agency/list");
+         }
+       }
+  
+
+
+ }
+
+
+function agency_list($form, &$form_state){
+ global $user;
+   $user_info = user_load($user->uid);
+
+
+  $role = end($user->roles);
+
+ $query = db_select('agency_record', 'ag_r');
+   $query->groupBy('ag_r.state');
+     $query->groupBy('ag_r.district');
+     $query->groupBy('ag_r.tehsil');
+     $query->groupBy('ag_r.agency');
+     $query->groupBy('ag_r.dowload_date_from');
+     $query->groupBy('ag_r.dowload_date_to');
+     $query->groupBy('ag_r.active'); 
+   $query->fields('ag_r', array('state','district','tehsil','agency','dowload_date_from','dowload_date_to','active'));
+  //  $query->fields('ag_r');
+    $result = $query->execute();
+      if( ($role == 'MOLE')){
+        $header = array('S.No','Agency name', 'State', 'District', 'Tehsil' ,'Villages','Download Period');
+}else{
+$header = array('S.No','Agency name', 'State', 'District', 'Tehsil' ,'Villages','Download Period');
+
+}
+$row =array();
+                      $i = 1;
+       while($data = $result->fetchAssoc()){
+        // echo "<pre>";
+        // print_r($data);
+        //print $data['agency'];
+       $node =  node_load($data['agency']);
+
+     //  echo "<pre>";
+     // print_r($node);
+     if($node->status==1){
+              if($data['active']==1){
+
+       $agency_name = $node->title;
+//}
+         $query_village = db_select('agency_record', 'v');
+            $query_village->fields('v',array('village'));
+            $query_village ->condition('agency',$data['agency'],'=');
+           $query_village ->condition('dowload_date_from',$data['dowload_date_from'],'=');
+            $query_village ->condition('dowload_date_to',$data['dowload_date_to'],'=');
+
+                $result_viilage = $query_village->execute();
+                $combine_vill = array();
+       while($vill_data = $result_viilage->fetchAssoc()){
+        $combine_vill[] = $vill_data['village'];
+}
+    $villvalues = implode(',',$combine_vill);
+     $vill = explode(',', $villvalues);
+      $village_list = _get_location('village',$data['state'],$data['district'],$data['tehsil']);
+       //Empaneled Date
+     //  $empaned_date_f = format_date(strtotime($node->field_tenure_for_empanelment_fro['und'][0]['value']), 'custom','d-m-Y');
+    //   $empaned_date_l = format_date(strtotime($node->field_tenure_for_empanelment_fro['und'][0]['value2']), 'custom','d-m-Y');
+ $empaned_date = date_format(date_create($data['dowload_date_from']),"d/m/Y").' <b>To</b> '.date_format(date_create($data['dowload_date_to']),"d/m/Y");      
+       $state_list = _get_location('state');
+        $state = $state_list[$data['state']];
+        $district_list = _get_location('district',$data['state']);
+        $district = $district_list[$data['district']];
+        $tahsil_list = _get_location('tehsil',$data['state'],$data['district']);       
+        $tehsil = $tahsil_list[$data['tehsil']];
+     //    $vill = explode(',', $data['village']);
+     // $village_list = _get_location('village',$data['state'],$data['district'],$data['tehsil']);
+
+ $k=1;
+$village = array();
+ foreach ($vill as $key => $value) {
+ $village[] = $village_list[$value];
+  }
+ $villdata = implode(',', $village);
+      if( ($role == 'MOLE')){
+
+        $rows[] = array(
+                    $i,
+                    $agency_name,    
+                    $state,      
+                    $district,
+                    $tehsil,
+                    $villdata,
+                    $empaned_date,
+                );
+      
+            }else{
+              if(($role == 'District') || ($role == 'State') || ($role == 'Tehsil')){
+            $state_value_agency = $user_info->field_state['und'][0]['value'];
+            $state_list_agency = _get_location('state');
+            $state_lists[$state_value_agency] = $state_list_agency[$state_value_agency];
+
+          }
+          if($state_lists[$state_value_agency]==$state){
+
+             $rows[] = array(
+                    $i,
+                    $agency_name,    
+                    $state,      
+                    $district,
+                    $tehsil,
+                    $villdata,
+                    $empaned_date, 
+                   //  "<a href='edit/".$data['id']."'>Edit</a> | <a href='delete/".$data['id']."' onclick = 'return confirm(\"Are you sure you want to delete this item?\");'>Delete</a>"                     
+                );
+           
+            }
+
+          }
+                                        $i++;
+                                      }
+
+          }
+              
+           
+       }
+        $form['table'] = array(
+                            '#theme' => 'table',
+                            '#header' => $header,
+                            '#rows' => $rows,
+                            '#empty' => t('Table has no row!'),
+                            '#prefix' => "<div id='my_printable_div'>".l('Assign Village To Agency','agency/add'),
+                            '#suffix' => "</div>",
+                          );
+
+            $form['pager'] = array('#markup' => theme('pager'));
+
+        return $form;
+
+
+}
+
+
+function agency_delete(){
+
+   $form['alert'] = array(
+        '#markup' => 'Are you sure to delete this ?<br>'
+      );
+    $form['delete'] = array(
+        '#type' => 'submit',
+        '#value' => t('delete'),
+    );
+    $form['cancel'] = array(
+        '#type' => 'submit',
+        '#value' => t('cancel'),
+    );
+    return $form;
+}
+function agency_delete_submit($form, &$form_state) {
+    $op = $form_state['values']['op'];
+    if($op == "delete") {
+        $deleted = db_delete('agency_record')
+            ->condition('id', arg(2))
+            ->execute();
+        drupal_set_message("Agency has been deleted", 'status');
+    }
+    drupal_goto('agency/list');
+}
+
+function agency_detail($form, &$form_state){
+
+ // echo "<pre>";
+  global $user;
+  $user_detail = user_load($user->uid);
+   $mail = $user_detail->mail;
+  $result = db_select('field_data_field_email_id', 'email')
+    ->fields('email')
+    ->condition('email.field_email_id_email', $mail ,'=')
+    ->execute()
+    ->fetchAssoc();
+     $entity_id = $result['entity_id'];
+    $node = node_load($entity_id);
+   // print_r($node);
+  $data =  "<table style='width:100%''>
+  <tr>
+    <td style='font-weight:700;'>Name</td>
+    <td>".$node->title."</td>   
+  </tr>
+  <tr>
+    <td style='font-weight:700;'>Username</td>
+    <td>".$node->field_username['und'][0]['value']."</td>
+  </tr>
+  <tr>
+    <td style='font-weight:700;'>Email Id</td>
+    <td>".$node->field_email_id['und'][0]['email']."</td>
+  </tr>
+  <tr>
+    <td style='font-weight:700;'>Address</td>
+    <td>".$node->field_address_1['und'][0]['value'].", ".$node->field_address_2['und'][0]['value']."</td>
+  </tr>
+  <tr>
+    <td style='font-weight:700;'>Contact Person</td>
+    <td>".$node->field_contact_person['und'][0]['value']."</td>
+  </tr>
+  <tr>
+    <td style='font-weight:700;'>Location</td>
+    <td>".$node->field_location['und'][0]['value']."</td>
+  </tr>
+   <tr>
+    <td style='font-weight:700;'>Mobile No</td>
+    <td>".$node->field_mobile_number['und'][0]['value']."</td>
+  </tr>
+   <tr>
+    <td style='font-weight:700;'>LandLine No.</td>
+    <td>".$node->field_landline_no['und'][0]['value']."</td>
+  </tr>
+  <tr>
+    <td style='font-weight:700;'>Tenure for empanelment </td>
+    <td>".$node->field_tenure_for_empanelment_fro['und'][0]['value']." - ".$node->field_tenure_for_empanelment_fro['und'][0]['value2']."</td>
+  </tr>
+  
+</table>";
+
+return $data;
+
+}
+
+function ajax_callback_rural_urban_agency($form, $form_state){
+
+
+         $form_field_r_u = $form_state['values']['rural_urban_agency'];
+         
+
+  // return $form['wrapper_rurul_urban'] = $r_u;
+
+    $form_field_state = $form['state'];
+    $form_field_district = $form['district'];
+    $form_field_tehsil = $form['tehsil'];
+    $form_field_village = $form['village'];
+   
+       return array(
+           '#type' => 'ajax',
+           '#commands' => array(
+           ajax_command_replace("#wrapper_state", render($form_field_district)),                      
+           ajax_command_replace("#wrapper_tehsil", render($form_field_tehsil)),
+           ajax_command_replace("#wrapper_village", render($form_field_village))    
+           )
+   );
+
+}
+
+
+function agency_record_cron(){
+   global $user;
+    $user_info = user_load($user->uid);
+  $role = end($user->roles);
+
+ $query = db_select('agency_record', 'ag_r');
+          $query->fields('ag_r');
+          $query->condition('active' ,'1');
+    $result = $query->execute();
+     
+       while($data = $result->fetchAssoc()){
+     $current_date =  strtotime(date('Y-m-d'));
+    $download_date_to =  strtotime($data['dowload_date_to']);
+  if($download_date_to < $current_date){
+            $id[] = $data['id'];
+  }
+ 
+ } 
+
+ db_update('agency_record')
+        ->fields(array('active' => 0))
+        ->condition('id', $id, 'IN')
+        ->execute();
+
+ 
+}

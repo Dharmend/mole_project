@@ -1,0 +1,337 @@
+<?php
+
+function newregistrationcsvimport_permission() {
+  return array(
+    'Import CSV labour data' => array(
+      'title' => t('Import labour Data through csv importer'),
+    ),
+    
+  );
+}
+
+function newregistrationcsvimport_menu() {
+      $items['newregistrationcsvimport'] = array(
+        'title' => t('Upload Offline New Registration Data of a Village'),
+        //'description' => 'Import content from a <abbr title="Comma Separated Values">CSV</abbr> file.',
+        //'access callback' => 'user_access',
+        'access arguments' => array('Import CSV labour data'),
+        'page callback' => 'newregistrationcsvimport_pagecallback',
+        'type' => MENU_NORMAL_ITEM,
+      );
+      // $items['new_reg/data_upload'] = array(
+      //   'title' => t('Upload Offline new Registration Data'),
+      //   'access arguments' => array('Import CSV labour data'),
+      //   'page callback' => 'newregistrationcsvimport_newregistration',
+      //   'type' => MENU_NORMAL_ITEM,
+      // );
+      return $items ;
+}
+
+// function newregistrationcsvimport_newregistration(){
+//     $output = t('Comming Soon');
+//     return $output;
+// }
+  
+
+  function newregistrationcsvimport_pagecallback(){
+    $module_path = drupal_get_path('module', 'newregistrationcsvimport');
+    
+    $form = drupal_get_form('newregistrationcsvimport_form');
+    
+    //$output = "<p>This tool will attempt to import CSV data";
+    $output .= drupal_render($form);
+    
+    return $output;
+  }
+
+
+  function newregistrationcsvimport_form() {
+      
+   $up_rural_urban = $_SESSION['up_rural_urban'];
+      
+    $form['#attributes'] = array(
+      'enctype' => 'multipart/form-data'
+    );
+  
+    $form['rural_urban'] = array(
+      '#type' => 'radios',
+      '#title' => t('Select Area'),
+       '#options' => array(
+         'rural' => t('Rural'),
+         'urban' => t('Urban'),
+        ),
+      '#required' => TRUE,
+      '#default_value' => $up_rural_urban, 
+      '#prefix' => '<div id="wrapper_area_choice">',
+        '#suffix' => '</div>',
+
+    );
+      
+    $form['csvfile'] = array( 
+      '#title' => t('CSV File'),
+      '#type'  => 'file',
+      //'#required' => TRUE,  
+      '#description' => ($max_size = parse_size(ini_get('upload_max_filesize'))) ? t('Due to server restrictions, the <strong>maximum upload file size is !max_size</strong>. Files that exceed this size will be disregarded.', array('!max_size' => format_size($max_size))) : '',    
+    ) ;
+    
+    $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('CSV Import'),
+    ) ;
+    $form['#validate'] = array(
+      'newregistrationcsvimport_validate_fileupload',
+      'newregistrationcsvimport_form_validate',
+    ) ;
+    return $form ;
+  }
+
+
+  function newregistrationcsvimport_validate_fileupload(&$form, &$form_state) {
+    $validators = array(
+      'file_validate_extensions' => array( 'csv' ),
+    );
+    
+    if ( $file = file_save_upload('csvfile', $validators, "public://", FILE_EXISTS_REPLACE) ) {
+      $form_state['values']['csvupload'] = $file->destination;    
+
+      
+    $file_state_id =  substr($file->filename,0,2); 
+      $_SESSION['file_state_id'] = $file_state_id;
+      $file_r_u =  substr($file->filename,11,5); 
+      $_SESSION['file_r_u'] = $file_r_u;
+
+    }
+    else {
+      form_set_error('newregistrationcsvimport', t('Unable to copy upload file to !dest', array('!dest' => $destination)));
+    }      
+  }
+
+
+  function newregistrationcsvimport_form_validate(&$form, &$form_state) {
+    if ( isset( $form_state['values']['csvupload'] ) ) {
+      if ( $handle = fopen($form_state['values']['csvupload'], 'r') ) {
+        $line_count = 1 ;
+        $first = TRUE ;
+        if ($line = fgetcsv($handle, 4096)){
+            drupal_set_message('Total row cont on csv'.count($line).'');
+            // if(count($line) != 79){//74
+            //   form_set_error('csvfile', t('This file has the incorrect number of columns. Expecting 79'));
+            // }
+          
+        }
+        fclose($handle);
+      }
+      else {
+        form_set_error('csvfile', t('Unable to read uploaded file !filepath', array('!filepath' => $form_state['values']['csvupload'])));
+      }
+    }
+  }
+
+
+  function newregistrationcsvimport_form_submit(&$form, &$form_state) {
+   $state = $_SESSION['file_state_id'];       
+      if($form_state['values']['rural_urban'] != '0'){
+            $_SESSION['up_rural_urban'] =  $form_state['values']['rural_urban'];
+
+       }
+
+
+    $batch = array(
+      'title' => t('Importing CSV ...'),
+      'operations' => array(),
+      'init_message' => t('Commencing'),
+      'progress_message' => t('Processed @current out of @total.'),
+      'error_message' => t('An error occurred during processing'),
+      'finished' => 'newregistrationcsvimport_import_finished',
+    );
+    if(isset( $form_state['values']['csvupload'] ) ) {
+      if($handle = fopen($form_state['values']['csvupload'], 'r') ) {
+        $batch['operations'][] = array('_newregistrationcsvimport_remember_filename', array($form_state['values']['csvupload']) ) ;
+        $line_count = 1 ;
+        $first = TRUE ;
+        $line = fgetcsv($handle, 4096);
+        while($line = fgetcsv($handle, 4096)){
+          // echo "<pre>";
+          // print_r($line);
+         // die('fefd');
+          //drupal_set_message('<pre>'.print_r($line,TRUE).'</pre>');
+          $up_sc1 = 'new_registration.'. $_SESSION['file_r_u'];
+        
+           
+//drupal_set_message(' ekey val '.$line[2].'and session val '.$_SESSION['up_rural_urban'].'');
+if(($line[0] != 'house_hold_id')  && (count($line) != 1)){
+
+          $key = 'lkirwf897+22#bbtrm8814z5qq=498j5'; // 32 * 8 = 256 bit key
+          $iv = '741952hheeyy66#cs!9hjv887mxx7@8y'; // 32 * 8 = 256 bit iv
+//die('sss');
+
+$qs = trim(trim(decryptRJ256($key,$iv,$line[0])).trim(decryptRJ256($key,$iv,$line[4])).trim(decryptRJ256($key,$iv,$line[15])).trim(decryptRJ256($key,$iv,$line[3])).trim(decryptRJ256($key,$iv,$line[7])).trim(decryptRJ256($key,$iv,$line[10])).trim(decryptRJ256($key,$iv,$line[17])));
+  $ekeyvs = trim(str_replace(' ', '', $qs));
+ $check_mds = md5($ekeyvs);
+ 
+//print  decryptRJ256($key,$iv,$line[18]);
+
+ if(trim($form_state['values']['rural_urban']) != $_SESSION['file_r_u']){
+    form_set_error('',t('Please Select the correct Area'));
+
+ }
+else{
+  //print decryptRJ256($key,$iv,$line[1]);
+//if ($check_mds == decryptRJ256($key,$iv,$line[67])){
+
+                                            
+                        
+                                    $data = array(
+
+
+                                    'house_hold_id'   => ($line[0]=='') ? '' : decryptRJ256($key,$iv,$line[0]),
+                                    'name' => ($line[1]=='') ? '' : decryptRJ256($key,$iv,$line[1]),
+                                    'fateher_name' => ($line[2]=='') ? '' : decryptRJ256($key,$iv,$line[2]),
+                                    'mother_name'  => ($line[3]=='') ? '' : decryptRJ256($key,$iv,$line[3]),
+                                    'dob'   => ($line[4]=='') ? '' : decryptRJ256($key,$iv,$line[4]),
+                                    'aadhar_number' => ($line[5]=='') ? '' : decryptRJ256($key,$iv,$line[5]),
+                                    'eid_aadhar'  => ($line[6]=='') ? '' : decryptRJ256($key,$iv,$line[6]),
+                                    'gender'   => ($line[7]=='') ? '' : decryptRJ256($key,$iv,$line[7]),
+                                    'mobile_number'   => ($line[8]=='') ? '' : decryptRJ256($key,$iv,$line[8]),
+                                    'bank_name'   => ($line[9]=='') ? '' : decryptRJ256($key,$iv,$line[9]),
+                                    'bank_account_no'  => ($line[10]=='') ? '' : decryptRJ256($key,$iv,$line[10]), 
+                                    'bank_branch'  => ($line[11]=='') ? '' : decryptRJ256($key,$iv,$line[11]),
+                                    'primary_occupation' => ($line[12]=='') ? '' : decryptRJ256($key,$iv,$line[12]),
+                                    'secondary_occupation' => ($line[13]=='') ? '' : decryptRJ256($key,$iv,$line[13]), 
+                                    'p_address_1'    => ($line[14]=='') ? '' : decryptRJ256($key,$iv,$line[14]),
+                                    'p_address_2'   => ($line[15]=='') ? '' : decryptRJ256($key,$iv,$line[15]),
+                                    'p_state'    => ($line[16]=='') ? '' : decryptRJ256($key,$iv,$line[16]),
+                                    'p_district' => ($line[17]=='') ? '' : decryptRJ256($key,$iv,$line[17]),
+                                    'p_tehsil'   => ($line[18]=='') ? '' : decryptRJ256($key,$iv,$line[18]),
+                                    'p_village'    => ($line[19]=='') ? '' : decryptRJ256($key,$iv,$line[19]),
+                                    'p_pin'     => ($line[20]=='') ? '' : decryptRJ256($key,$iv,$line[20]),
+                                    'c_address_1'   => ($line[21]=='') ? '' : decryptRJ256($key,$iv,$line[21]),
+                                    'c_address_2'   => ($line[22]=='') ? '' : decryptRJ256($key,$iv,$line[22]),
+                                    'c_state'    => ($line[23]=='') ? '' : decryptRJ256($key,$iv,$line[23]),
+                                    'c_district'   => ($line[24]=='') ? '' : decryptRJ256($key,$iv,$line[24]),
+                                    'c_tehsil'   => ($line[25]=='') ? '' : decryptRJ256($key,$iv,$line[25]),
+                                    'c_village'    => ($line[26]=='') ? '' : decryptRJ256($key,$iv,$line[26]),
+                                    'c_pin'     => ($line[27]=='') ? '' : decryptRJ256($key,$iv,$line[27]),
+                                    'vote_id'   => ($line[28]=='') ? '' : decryptRJ256($key,$iv,$line[28]),
+                                    'registrationvillage'  => ($line[29]=='') ? '' : decryptRJ256($key,$iv,$line[29]),
+                                    'operatorname'  => ($line[30]=='') ? '' : decryptRJ256($key,$iv,$line[30]),
+                                    'kit_id' => ($line[31]=='') ? '' : $line[31],
+                                    'batch_id'  => ($line[32]=='') ? '' : $line[32],
+
+
+                                            
+                                                     );
+                                    // echo "<pre>";
+                                    // print_r($data);
+
+ // die('sss');
+
+
+                                  $result = db_insert($up_sc1)
+                                              ->fields($data)
+                                              ->execute();
+                                    
+                             
+
+          } 
+            
+        }    
+            
+          
+          
+          $batch['operations'][] = array('_newregistrationcsvimport_import_line', array(array_map('base64_encode', $line)));        
+        }
+        //die('sss');
+        fclose($handle);
+      } // we caught this in newregistrationcsvimport_form_validate()
+    } 
+    // we caught this in newregistrationcsvimport_form_validate()
+    batch_set($batch);
+  }
+  
+
+function newregistrationcsvimport_import_finished($success, $results, $operations) {
+    if ( !empty($results['failed_rows']) ) {
+      $dir  = file_directory_path() . '/newregistrationcsvimport/' ;
+      if ( file_check_directory( $dir, FILE_CREATE_DIRECTORY ) ) {
+        $csv_filename = 'failed_rows-'. basename($results['uploaded_filename']); // we validated extension on upload
+        $csv_filepath = $dir .'/'. $csv_filename;
+        $targs = array(
+          '!csv_url' => l(check_plain($csv_filename), $csv_filepath),
+          '%csv_filename' => $csv_filename,
+          '%csv_filepath' => $csv_filepath,
+        ) ;
+        if ( $handle = fopen($csv_filepath, 'w+') ) {
+          foreach( $results['failed_rows'] as $failed_row ) {
+            fputcsv($handle, $failed_row);
+          }
+          fclose($handle);
+          drupal_set_message(t('Some rows failed to import. You may download a CSV of these rows: !csv_url', $targs), 'error');
+        }
+        else {
+          drupal_set_message(t('Some rows failed to import, but unable to write error CSV to %csv_filepath', $targs), 'error');
+        }
+      }
+      else {
+        drupal_set_message(t('Some rows failed to import, but unable to create directory for error CSV at %csv_directory', $targs), 'error');
+      }
+    }
+    return t('The CSV import has completed.');
+  }
+  
+  
+  function _newregistrationcsvimport_remember_filename($filename, &$context) {
+    $context['results']['uploaded_filename'] = $filename;
+  }
+
+  function _newregistrationcsvimport_import_line($line, $session_nid, &$context) {
+      
+    $context['results']['rows_imported']++;
+    $line = $cleaned_line = array_map('base64_decode', $line);
+    
+    
+    
+      $context['message'] = t('Importing row !c', array( '!c' => $context['results']['rows_imported'] ));
+    
+      $context['message'] = t('Importing %title', array('%title' => $line[0]));
+    
+      //drupal_set_message("Parsed line {$line[0]}");
+  
+     if ( $line[1] == 'ROW' && $line[2] == 'FAILS' ) {
+        $context['results']['failed_rows'][] = $line ;
+      }
+}
+
+
+// function register_labour_load($schema_name,$ahl_tin){
+
+//   // echo "<pre>";
+//   // print_r($_SESSION);
+//   // die('sssss');
+     
+//  // $state_val = '21';//$_SESSION['state_value']
+//     $state_val = $_SESSION['file_state_id'];
+
+
+  
+//   $query = db_select($schema_name.'.individual_'.$state_val,'secc')
+//          ->fields('secc')
+//          ->condition('secc.ahl_tin',$ahl_tin,'=')
+//          ->execute()->fetchAssoc();
+  
+// return $query;
+     
+//  }
+
+
+
+// function decryptRJ256($key,$iv,$string_to_decrypt)
+//   {
+//    $data_decrypt = base64_decode($string_to_decrypt);
+//   $rtn = mcrypt_decrypt(MCRYPT_RIJNDAEL_256, $key, $data_decrypt, MCRYPT_MODE_CBC, $iv);
+//   return $rtn;
+// }
+
+
+
+

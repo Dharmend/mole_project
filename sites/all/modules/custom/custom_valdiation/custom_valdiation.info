@@ -1,0 +1,6 @@
+name =  custom validation,
+description = Different validation,
+core = 7.x
+package = 'custom'
+
+

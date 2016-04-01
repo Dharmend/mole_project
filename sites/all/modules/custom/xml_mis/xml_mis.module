@@ -1,0 +1,138 @@
+<?php
+
+function xml_mis_menu(){
+    $items['gen-batch'] = array(
+        'title' => 'Generate Batch id For XML Data',
+        'discription' => 'List of batch id',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('batch_id_xml'),
+        'access arguments' => array('batch id for xml'),
+        'type' => MENU_NORMAL_ITEM,
+     );
+    return $items;
+}
+
+function xml_mis_permission(){
+  return array(
+     'batch id for xml' => array(
+      'title' => t('batch id for xml'),
+    ),
+  );
+}
+
+function batch_id_xml($form, &$form_state){
+    
+      global $user;
+  $role = end($user->roles);  
+  $aa = user_load($user->uid);
+
+  $state_list = _get_location('state');          
+  $session_state = ($_SESSION['state_batch'] !='') ? $_SESSION['state_batch']: key($state_list);
+  $state_selected = isset($form_state['values']['state']) ? $form_state['values']['state'] : $session_state;
+    $form['state'] = array(
+        '#title' => 'State',
+        '#type' => 'select',
+        '#options' => $state_list,
+        '#default_value' => $state_selected,
+        '#required' => TRUE,
+        '#ajax' => array(
+            'callback' => 'ajax_callback_state',
+            'wrapper' => 'wrapper_state',            
+        ),        
+    );
+
+     $district_list = _get_location('district',$state_selected);    
+     $session_district = ($_SESSION['district_batch'] !='') ? $_SESSION['district_batch']: key($district_list);
+     $district_selected = isset($form_state['values']['district']) ? $form_state['values']['district'] : $session_district;
+    $form['district'] = array(
+        '#title' => 'District',
+        '#type' => 'select',
+        '#options' => $district_list,
+        '#default_value' => $district_selected,
+        '#required' => TRUE,
+        '#prefix' => '<div id="wrapper_state">',
+        '#suffix' => '</div>',
+        '#ajax' => array(
+            'callback' => 'ajax_callback_district',
+            'wrapper' => 'wrapper_tehsil',
+            
+        ),        
+    );
+    
+     
+ $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+  );
+
+ 
+
+  $form['markup_data'] = array(
+               '#type' => 'markup',
+               '#markup' => ('<br><br><br><h3>List Of Batch Record </h3>'),
+               
+               );
+
+
+  $batchcode = $_SESSION['state_batch'].''. $_SESSION['district_batch'];
+
+if($batchcode !=''){
+  $header = array('S.No','State','District', 'Batch Number' ,'Batch Date'); 
+
+ $batch_query = db_select("ssid_generated_data".".individual_21", "n")    
+                   ->groupBy('n.ssid_batch')
+                    ->fields('n',array('ssid_batch')) 
+                    ->condition('n.ssid_batch',db_like($batchcode) . '%', 'LIKE') 
+                    ->condition('ssid','','!=')
+                    ->execute();
+                          $i=1;
+             while($result = $batch_query->fetchAssoc()) {               
+
+             $created_date = db_select("ssid_generated_data".".individual_21", "n")    
+                    ->fields('n',array('created')) 
+                    ->condition('ssid_batch',$result['ssid_batch'],'=')
+                    ->execute();
+                    $result_date = $created_date->fetchAssoc();
+                  $createddate =    date('d/m/Y  (h:m)', $result_date['created']);
+                 $state = $state_list[$_SESSION['state_batch']];
+                 $district =  $district_list[$_SESSION['district_batch']];   
+                                
+                            $rows[] = array(
+                                    $i, 
+                                    $state,      
+                                    $district,
+                                    $result['ssid_batch'],
+                                    $createddate,                         
+                                 
+                          );
+                            $i++;
+
+                   }        
+                        $form['table'] = array(
+                            '#theme' => 'table',
+                            '#header' => $header,
+                            '#rows' => $rows,
+                            '#empty' => t('Table has no row!')
+                          );
+                 
+          $form['pager'] = array('#markup' => theme('pager'));
+
+ }
+
+    return $form;
+    
+}
+
+function batch_id_xml_submit($form, &$form_state){
+  
+   if($form_state['values']['state'] != ''){
+           $_SESSION['state_batch'] =  $form_state['values']['state'];
+
+       }
+       if ($form_state['values']['district'] != '') {
+            $_SESSION['district_batch'] =  $form_state['values']['district'];
+           
+       }
+
+
+}

@@ -1,0 +1,6 @@
+name = SSID Generation
+description = Genearate SSID
+core = 7.x
+package = 'custom'
+
+

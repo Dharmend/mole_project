@@ -1,0 +1,69 @@
+<?php
+/**
+ * @file
+ * Install, update and uninstall functions for the card register  module.
+ */
+function upload_acknowledgement_schema(){
+$schema['upload_acknowledgement'] = array(
+    'description' => 'Stores Acknowledgement Information.',
+    'fields' => array(
+      'id'  => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+        'description' => 'Primary Key: Unique id.',
+      ),
+      'ahl_tin' => array(
+        'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '',
+      ),
+      'fid' => array(
+        'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '',
+      ),
+      'date_upload' => array(
+        'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '',
+      ),
+      'state' => array(
+         'type' => 'varchar',
+        'length' => 10,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '',
+      ),
+      'district' => array(
+        'type' => 'varchar',
+        'length' => 10,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '',
+      ),
+      'tehsil' => array(
+        'type' => 'varchar',
+        'length' => 6,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '',
+      ),
+      'village_town' => array(
+       'type' => 'varchar',
+        'length' => 50,
+        'not null' => TRUE,
+        'default' => '',
+        'description' => '',
+      ),
+      
+    ),  
+    'primary key' => array('id'),
+  );
+  return $schema;
+ }

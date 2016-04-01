@@ -1,0 +1,5 @@
+card_request_id,state,district,authority_card_holder,designation,address1_requester,address2_requester,pin_code,card_type,letter_date,letterno,department_organisation_name,organisation_unit_no,adhar_no
+
+6,21,15,odisha,state user,odissa address,postgres,110096,2,2015-12-30,123456,Expert Department,1245,ADHAR012312354,
+
+7,21,15,odisha,state user,odissa address,postgres,110094,8,2015-12-18,245365,Ministry of finance,1200,ADUT98977,

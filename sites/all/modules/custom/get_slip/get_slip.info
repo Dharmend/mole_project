@@ -1,0 +1,7 @@
+name = SECC Get Slip
+description = Slip Record of person in a village
+core = 7.x
+package = 'custom'
+version = 7.x-1.7
+
+

@@ -1,0 +1,193 @@
+<?php
+
+function xmlImport_permission() {
+  return array(
+    'Import XML labour data' => array(
+      'title' => t('Import labour Data through XML importer'),
+    ),
+    
+  );
+}
+
+function xmlImport_menu() {
+      $items['xmlImport'] = array(
+        'title' => t('Upload XML Data from UWIN Card Response'),
+         'access arguments' => array('Import XML labour data'),
+        'page callback' => 'xmlImport_pagecallback',
+        'type' => MENU_NORMAL_ITEM,
+      );
+      return $items ;
+}
+  
+
+  function xmlImport_pagecallback(){
+    $module_path = drupal_get_path('module', 'xmlImport');    
+    $form = drupal_get_form('xmlImport_form');    
+    $output .= drupal_render($form);
+    
+    return $output;
+  }
+
+
+  function xmlImport_form() {
+      
+   $up_rural_urban = $_SESSION['up_rural_urban'];
+      
+    $form['#attributes'] = array(
+      'enctype' => 'multipart/form-data'
+    );
+
+  
+   
+      
+    $form['xmlfile'] = array( 
+      '#title' => t(' Upload XML File from UWIN Response'),
+      '#type'  => 'file',
+     // '#required' => TRUE,  
+      '#description' => ($max_size = parse_size(ini_get('upload_max_filesize'))) ? t('Due to server restrictions, the <strong>maximum upload file size is !max_size</strong>. Files that exceed this size will be disregarded.', array('!max_size' => format_size($max_size))) : '',    
+    ) ;
+    
+    $form['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('XML Import'),
+    ) ;
+    $form['#validate'] = array(
+      'xmlImport_validate_fileupload',
+      'xmlImport_form_validate',
+    ) ;
+    return $form ;
+  }
+
+
+  function xmlImport_validate_fileupload(&$form, &$form_state) {
+    $validators = array(
+      'file_validate_extensions' => array( 'xml' ),
+    );
+    
+    if ( $file = file_save_upload('xmlfile', $validators, "public://", FILE_EXISTS_REPLACE) ) {
+      $form_state['values']['xmlupload'] = $file->destination;       
+    }
+    else {
+      form_set_error('xmlImport', t('Unable to copy upload file to !dest', array('!dest' => $destination)));
+    }      
+  }
+
+
+  function xmlImport_form_validate(&$form, &$form_state) {
+    if ( isset( $form_state['values']['xmlupload'] ) ) {
+      if ( $handle = fopen($form_state['values']['xmlupload'], 'r') ) {
+        $line_count = 1 ;
+        $first = TRUE ;
+        $uri = 'public://';
+        $path = file_create_url($uri);
+        $file_name = str_replace('public://', '', $form_state['values']['xmlupload']);
+        $xml_path = $path.$file_name;
+        // if ($line = simplexml_load_file($xml_path)){
+        //     drupal_set_message('Total row cont on csv'.count($line).'');
+        //     if(count($line) != 79){//74
+        //       form_set_error('xmlfile', t('This file has the incorrect number of columns. Expecting 79'));
+        //     }
+          
+        // }
+        fclose($handle);
+      }
+      else {
+        form_set_error('csvfile', t('Unable to read uploaded file !filepath', array('!filepath' => $form_state['values']['xmlupload'])));
+      }
+    }
+  }
+
+
+  function xmlImport_form_submit(&$form, &$form_state) {
+    echo "<pre>";
+    
+    $batch = array(
+      'title' => t('Importing XML ...'),
+      'operations' => array(),
+      'init_message' => t('Commencing'),
+      'progress_message' => t('Processed @current out of @total.'),
+      'error_message' => t('An error occurred during processing'),
+      'finished' => 'xmlImport_import_finished',
+    );
+    if(isset( $form_state['values']['xmlupload'] ) ) {
+      if($handle = fopen($form_state['values']['xmlupload'], 'r') ) {
+        $batch['operations'][] = array('_xmlImport_remember_filename', array($form_state['values']['xmlupload']) ) ;
+        $line_count = 1 ;
+        $first = TRUE ;
+        $uri = 'public://';
+        $path = file_create_url($uri);
+        $file_name = str_replace('public://', '', $form_state['values']['xmlupload']);
+        $xml_path = $path.$file_name;
+
+        $line = simplexml_load_file($xml_path);
+      // while($line = simplexml_load_file($xml_path)){
+        print_r($line); 
+          
+            
+            /**
+           * we use base64_encode to ensure we don't overload the batch
+           * processor by stuffing complex objects into it
+           */
+       //   $batch['operations'][] = array('_xmlImport_import_line', array(array_map('base64_encode', $line)));        
+     //   }
+
+
+        die('ss');
+        fclose($handle);
+      } // we caught this in xmlImport_form_validate()
+    } // we caught this in xmlImport_form_validate()
+    batch_set($batch);
+  }
+  
+
+function xmlImport_import_finished($success, $results, $operations) {
+    if ( !empty($results['failed_rows']) ) {
+      $dir  = file_directory_path() . '/xmlImport/' ;
+      if ( file_check_directory( $dir, FILE_CREATE_DIRECTORY ) ) {
+        $csv_filename = 'failed_rows-'. basename($results['uploaded_filename']); // we validated extension on upload
+        $csv_filepath = $dir .'/'. $csv_filename;
+        $targs = array(
+          '!csv_url' => l(check_plain($csv_filename), $csv_filepath),
+          '%csv_filename' => $csv_filename,
+          '%csv_filepath' => $csv_filepath,
+        ) ;
+        if ( $handle = fopen($csv_filepath, 'w+') ) {
+          foreach( $results['failed_rows'] as $failed_row ) {
+            fputcsv($handle, $failed_row);
+          }
+          fclose($handle);
+          drupal_set_message(t('Some rows failed to import. You may download a CSV of these rows: !csv_url', $targs), 'error');
+        }
+        else {
+          drupal_set_message(t('Some rows failed to import, but unable to write error CSV to %csv_filepath', $targs), 'error');
+        }
+      }
+      else {
+        drupal_set_message(t('Some rows failed to import, but unable to create directory for error CSV at %csv_directory', $targs), 'error');
+      }
+    }
+    return t('The CSV import has completed.');
+  }
+  
+  
+  function _xmlImport_remember_filename($filename, &$context) {
+    $context['results']['uploaded_filename'] = $filename;
+  }
+
+  function _xmlImport_import_line($line, $session_nid, &$context) {
+      
+    $context['results']['rows_imported']++;
+    $line = $cleaned_line = array_map('base64_decode', $line);
+    
+    
+    
+      $context['message'] = t('Importing row !c', array( '!c' => $context['results']['rows_imported'] ));
+    
+      $context['message'] = t('Importing %title', array('%title' => $line[0]));
+    
+      //drupal_set_message("Parsed line {$line[0]}");
+  
+     if ( $line[1] == 'ROW' && $line[2] == 'FAILS' ) {
+        $context['results']['failed_rows'][] = $line ;
+      }
+}

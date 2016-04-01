@@ -1,0 +1,6 @@
+name = dashboard of user detail
+description = Dashboard for user
+core = 7.x
+package = 'custom'
+
+
